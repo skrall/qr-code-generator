@@ -35,6 +35,30 @@ export interface RenderRequest {
   style: QrStyle
 }
 
+/** A stored destination and the code that redirects to it. */
+export interface ShortLink {
+  code: string
+  shortUrl: string
+  targetUrl: string
+  createdAt: string
+  expiresAt: string | null
+  hitCount: number
+  lastHitAt: string | null
+}
+
+export interface LinkPage {
+  items: ShortLink[]
+  total: number
+  page: number
+  size: number
+}
+
+export interface CreateLinkInput {
+  url: string
+  /** ISO timestamp, or null for a link that never expires. */
+  expiresAt: string | null
+}
+
 /** The formats the server can decode, which is narrower than what a browser can display. */
 const SUPPORTED_LOGO_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif'])
 
@@ -93,6 +117,49 @@ export async function readLogoFile(file: File): Promise<QrLogo> {
     paddingPercent: 8,
     background: '#ffffff',
     radiusPercent: 25,
+  }
+}
+
+/** Stores a destination and returns the short link that redirects to it. */
+export async function createLink(input: CreateLinkInput, signal?: AbortSignal): Promise<ShortLink> {
+  const response = await fetch('/api/links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as ShortLink
+}
+
+/** One page of stored links, newest first. An empty query lists everything. */
+export async function listLinks(
+  query: string,
+  page: number,
+  size: number,
+  signal?: AbortSignal,
+): Promise<LinkPage> {
+  const params = new URLSearchParams({ page: String(page), size: String(size) })
+  const trimmed = query.trim()
+  if (trimmed) {
+    params.set('q', trimmed)
+  }
+
+  const response = await fetch(`/api/links?${params.toString()}`, { signal })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as LinkPage
+}
+
+/** Soft deletes a link: its code then answers 410 Gone instead of 404. */
+export async function deleteLink(code: string): Promise<void> {
+  const response = await fetch(`/api/links/${encodeURIComponent(code)}`, { method: 'DELETE' })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
   }
 }
 

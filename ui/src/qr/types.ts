@@ -9,6 +9,7 @@
 export type QrTypeId =
   | 'text'
   | 'url'
+  | 'shortlink'
   | 'email'
   | 'phone'
   | 'sms'
@@ -282,6 +283,16 @@ export const QR_TYPES: readonly QrType[] = [
     ],
     defaults: {},
     build: buildUrl,
+  },
+  {
+    id: 'shortlink',
+    label: 'Short link',
+    hint: 'Stores the destination and encodes a link that redirects to it.',
+    // The payload is the URL the server returns, not something composed here, so this type has
+    // no fields of its own. ShortLinkForm owns the create step and App holds the result.
+    fields: [],
+    defaults: {},
+    build: () => '',
   },
   {
     id: 'email',

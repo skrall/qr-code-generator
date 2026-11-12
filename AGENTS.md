@@ -30,9 +30,23 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - The three finder patterns are excluded from the module pass and drawn as whole shapes, so
   their rings stay concentric.
 
+## Short links
+
+- Flyway owns the schema. Add a new `V{n}__*.sql` under `src/main/resources/db/migration` rather
+  than editing an applied one. `ddl-auto` is `validate`, so a mapping that drifts fails at startup.
+- Tests use an in-memory H2 through `src/test/resources/application.properties`; the file-backed
+  default would otherwise write `data/` into the checkout.
+- `data/` holds the H2 database and is ignored. Delete it to start with an empty link table.
+- A code that was deleted or has expired answers `410 Gone`, not `404`. Keep the soft delete:
+  a printed code that stops working is not the same as an address that never existed.
+
 ## UI
 
 - Never name a prop `style` (or `class`). Vue clones a reactive object under those keys into a
   plain one, so a child would mutate a detached copy: clicks appear to do nothing and no error
   is raised. `StylePanel` takes `qrStyle` for this reason, and `StylePanel.spec.ts` guards it.
+- Creating a short link is an explicit action, not part of the debounced preview. Wiring it into
+  the preview would store a destination on every keystroke.
+- The generator stays mounted with `v-show` while the links view is open, so the form state and
+  the preview cannot disagree when switching back.
 

@@ -2,12 +2,17 @@
 import type { QrFormat } from '../api/client'
 import type { PreviewState } from '../preview'
 
-defineProps<{
-  url: string
-  state: PreviewState
-  error: string
-  payload: string
-}>()
+withDefaults(
+  defineProps<{
+    url: string
+    state: PreviewState
+    error: string
+    payload: string
+    /** Shown before there is anything to render; the short link type needs a different prompt. */
+    placeholder?: string
+  }>(),
+  { placeholder: 'Fill in the required fields and the code appears here.' },
+)
 
 defineEmits<{
   download: [format: QrFormat]
@@ -19,9 +24,7 @@ defineEmits<{
     <div class="preview-stage">
       <img v-if="url" :src="url" alt="QR code preview" />
       <p v-else-if="state === 'loading'" class="preview-placeholder">Rendering…</p>
-      <p v-else class="preview-placeholder">
-        Fill in the required fields and the code appears here.
-      </p>
+      <p v-else class="preview-placeholder">{{ placeholder }}</p>
       <span v-if="state === 'loading' && url" class="spinner" aria-hidden="true"></span>
     </div>
 

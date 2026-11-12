@@ -8,6 +8,33 @@ spring:
     problemdetails:
       enabled: true
 
+  # Short links are user data: they have to survive a restart, so the default is a file rather
+  # than an in-memory database. AUTO_SERVER lets a second process (such as an H2 console) open
+  # the same file while the app is running.
+  #
+  # A deployment with Postgres only has to set SPRING_DATASOURCE_URL, SPRING_DATASOURCE_USERNAME
+  # and SPRING_DATASOURCE_PASSWORD. The driver is inferred from the URL, so nothing else changes.
+  datasource:
+    url: jdbc:h2:file:./data/qr-code-generator;AUTO_SERVER=TRUE
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      # Flyway creates the tables. Validating rather than updating means a mapping that no
+      # longer matches the migrations fails at startup instead of quietly changing a table.
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+
+app:
+  # The address a phone must be able to reach. The default is only right for this machine:
+  # a code scanned elsewhere has to point at a LAN address or the name behind a reverse proxy.
+  public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
+
 # Loopback only by default: this is a local tool, and a QR generator on an open port invites
 # strangers to use it as a rendering service. Override SERVER_ADDRESS when it should be
 # reachable from another machine.

@@ -15,3 +15,6 @@ ui/dist
 
 # Python bytecode cache, from any local tooling
 __pycache__/
+
+# The H2 database short links live in.
+data/
