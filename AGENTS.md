@@ -8,7 +8,9 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 
 ## Running the build
 
-- Prefix Maven with `mise exec --`: the global `java` is not the project's Java 25.
+- `./mvnw` uses the `java` on `PATH`. `mise.toml` pins Java 25, but only `mise exec --` applies
+  that pin; a non-interactive shell usually has not activated mise. The build targets Java 25
+  bytecode and passes on the system JDK 27 as well, so either works.
 - The UI build pins Node `v26.13.0` (Maven downloads it to `ui/node/node`). Use that binary
   rather than a system Node: `export PATH="$PWD/ui/node/node:$PATH"`.
 - When changing `node.version`, `rm -rf ui/node` first. Leaving the old download in place mixes

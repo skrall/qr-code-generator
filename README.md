@@ -18,12 +18,16 @@ by the same process.
 
 ## Running it
 
-Requires [mise](https://mise.jdx.dev/) (for Java 25 and Maven). Node is not required: the Maven
-build downloads it into `ui/node`.
+Requires JDK 25 or newer. The wrapper downloads Maven and the build downloads Node into
+`ui/node`, so neither has to be installed.
 
 ```bash
-mise exec -- ./mvnw spring-boot:run
+./mvnw spring-boot:run
 ```
+
+The project pins Java 25 in `mise.toml` for anyone using [mise](https://mise.jdx.dev/): with mise
+activated, `./mvnw` picks that JDK up automatically. Without it, the wrapper uses whatever `java`
+is on your `PATH`. The build targets Java 25 bytecode either way, so a newer JDK works too.
 
 Then open <http://localhost:8080>. The same process serves the UI, the API and the OpenAPI
 document at `/v3/api-docs`.
@@ -33,7 +37,7 @@ proxies `/api` and `/v3` to the backend, so the browser still sees one origin:
 
 ```bash
 # terminal 1
-mise exec -- ./mvnw spring-boot:run
+./mvnw spring-boot:run
 
 # terminal 2
 export PATH="$PWD/ui/node/node:$PATH"
@@ -46,14 +50,14 @@ The dev server is at <http://localhost:5173>. Point it at a different backend wi
 ### Build and test
 
 ```bash
-mise exec -- ./mvnw verify              # Java tests, then the UI install, build and tests
-mise exec -- ./mvnw -Dskip.ui=true test # Java only
+./mvnw verify              # Java tests, then the UI install, build and tests
+./mvnw -Dskip.ui=true test # Java only
 ```
 
 `verify` produces a runnable jar in `target/` with the UI inside it:
 
 ```bash
-mise exec -- java -jar target/qr-code-generator-0.1.0-SNAPSHOT.jar
+java -jar target/qr-code-generator-0.1.0-SNAPSHOT.jar
 ```
 
 ## Using the API
