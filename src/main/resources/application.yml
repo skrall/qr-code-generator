@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: qr-code-generator
+
+  mvc:
+    # RFC 9457 error bodies, so a rejected request explains itself instead of returning an
+    # empty body with a status.
+    problemdetails:
+      enabled: true
+
+# Loopback only by default: this is a local tool, and a QR generator on an open port invites
+# strangers to use it as a rendering service. Override SERVER_ADDRESS when it should be
+# reachable from another machine.
+server:
+  address: 127.0.0.1
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs

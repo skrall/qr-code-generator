@@ -1,0 +1,17 @@
+.vscode
+.idea
+*.iml
+target
+
+# Eclipse workspace metadata, per developer rather than per project
+.classpath
+.project
+.settings
+
+# The UI's dependencies and the Node download the Maven build makes.
+ui/node
+ui/node_modules
+ui/dist
+
+# Python bytecode cache, from any local tooling
+__pycache__/
