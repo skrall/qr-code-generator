@@ -166,7 +166,8 @@ onUnmounted(() => {
 
         <div class="card">
           <h2>Style</h2>
-          <StylePanel :style="style" />
+          <!-- Not `:style`: Vue clones a reactive prop named `style` into a plain object. -->
+          <StylePanel :qr-style="style" />
 
           <hr />
 

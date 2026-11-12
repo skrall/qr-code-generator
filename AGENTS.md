@@ -27,3 +27,10 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - The quiet zone is applied in module units by the renderers, not by ZXing (`MARGIN=0`).
 - The three finder patterns are excluded from the module pass and drawn as whole shapes, so
   their rings stay concentric.
+
+## UI
+
+- Never name a prop `style` (or `class`). Vue clones a reactive object under those keys into a
+  plain one, so a child would mutate a detached copy: clicks appear to do nothing and no error
+  is raised. `StylePanel` takes `qrStyle` for this reason, and `StylePanel.spec.ts` guards it.
+

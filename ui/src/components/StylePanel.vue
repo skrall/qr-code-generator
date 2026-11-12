@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import type { ErrorCorrection, FinderShape, ModuleShape, QrStyle } from '../api/client'
 
-const props = defineProps<{ style: QrStyle }>()
+/**
+ * The prop is deliberately not called `style`.
+ *
+ * <p>Vue treats a vnode prop named `style` as a style binding: `createBaseVNode` clones a
+ * reactive object under that key into a plain one. The child would then mutate a detached copy,
+ * so nothing would re-render and no error would be raised. `qrStyle` passes the object through
+ * untouched.
+ */
+const props = defineProps<{ qrStyle: QrStyle }>()
 
 interface Preset {
   id: string
@@ -72,20 +80,20 @@ const errorCorrections: readonly { value: ErrorCorrection; label: string }[] = [
 ]
 
 function apply(preset: Preset): void {
-  props.style.moduleShape = preset.moduleShape
-  props.style.finderShape = preset.finderShape
-  props.style.foreground = preset.foreground
-  props.style.background = preset.background
-  props.style.finderColor = preset.finderColor
+  props.qrStyle.moduleShape = preset.moduleShape
+  props.qrStyle.finderShape = preset.finderShape
+  props.qrStyle.foreground = preset.foreground
+  props.qrStyle.background = preset.background
+  props.qrStyle.finderColor = preset.finderColor
 }
 
 function isActive(preset: Preset): boolean {
   return (
-    props.style.moduleShape === preset.moduleShape &&
-    props.style.finderShape === preset.finderShape &&
-    props.style.foreground === preset.foreground &&
-    props.style.background === preset.background &&
-    props.style.finderColor === preset.finderColor
+    props.qrStyle.moduleShape === preset.moduleShape &&
+    props.qrStyle.finderShape === preset.finderShape &&
+    props.qrStyle.foreground === preset.foreground &&
+    props.qrStyle.background === preset.background &&
+    props.qrStyle.finderColor === preset.finderColor
   )
 }
 </script>
@@ -114,9 +122,9 @@ function isActive(preset: Preset): boolean {
           v-for="shape in moduleShapes"
           :key="shape.value"
           type="button"
-          :class="{ active: style.moduleShape === shape.value }"
-          :aria-pressed="style.moduleShape === shape.value"
-          @click="style.moduleShape = shape.value"
+          :class="{ active: qrStyle.moduleShape === shape.value }"
+          :aria-pressed="qrStyle.moduleShape === shape.value"
+          @click="qrStyle.moduleShape = shape.value"
         >
           {{ shape.label }}
         </button>
@@ -130,9 +138,9 @@ function isActive(preset: Preset): boolean {
           v-for="shape in finderShapes"
           :key="shape.value"
           type="button"
-          :class="{ active: style.finderShape === shape.value }"
-          :aria-pressed="style.finderShape === shape.value"
-          @click="style.finderShape = shape.value"
+          :class="{ active: qrStyle.finderShape === shape.value }"
+          :aria-pressed="qrStyle.finderShape === shape.value"
+          @click="qrStyle.finderShape = shape.value"
         >
           {{ shape.label }}
         </button>
@@ -143,30 +151,30 @@ function isActive(preset: Preset): boolean {
       <label class="control">
         <span class="control-label">Foreground</span>
         <span class="color-row">
-          <input v-model="style.foreground" type="color" aria-label="Foreground colour" />
-          <code>{{ style.foreground }}</code>
+          <input v-model="qrStyle.foreground" type="color" aria-label="Foreground colour" />
+          <code>{{ qrStyle.foreground }}</code>
         </span>
       </label>
 
       <label class="control">
         <span class="control-label">Background</span>
         <span class="color-row">
-          <input v-model="style.background" type="color" aria-label="Background colour" />
-          <code>{{ style.background }}</code>
+          <input v-model="qrStyle.background" type="color" aria-label="Background colour" />
+          <code>{{ qrStyle.background }}</code>
         </span>
       </label>
 
       <label class="control">
         <span class="control-label">Corners</span>
         <span class="color-row">
-          <input v-model="style.finderColor" type="color" aria-label="Corner pattern colour" />
-          <code>{{ style.finderColor }}</code>
+          <input v-model="qrStyle.finderColor" type="color" aria-label="Corner pattern colour" />
+          <code>{{ qrStyle.finderColor }}</code>
         </span>
       </label>
 
       <label class="control">
         <span class="control-label">Error correction</span>
-        <select v-model="style.errorCorrection">
+        <select v-model="qrStyle.errorCorrection">
           <option v-for="option in errorCorrections" :key="option.value" :value="option.value">
             {{ option.label }}
           </option>
@@ -178,17 +186,17 @@ function isActive(preset: Preset): boolean {
       <label class="control">
         <span class="control-label">
           Size
-          <output>{{ style.size }} px</output>
+          <output>{{ qrStyle.size }} px</output>
         </span>
-        <input v-model.number="style.size" type="range" min="128" max="1024" step="16" />
+        <input v-model.number="qrStyle.size" type="range" min="128" max="1024" step="16" />
       </label>
 
       <label class="control">
         <span class="control-label">
           Quiet zone
-          <output>{{ style.margin }} modules</output>
+          <output>{{ qrStyle.margin }} modules</output>
         </span>
-        <input v-model.number="style.margin" type="range" min="0" max="12" step="1" />
+        <input v-model.number="qrStyle.margin" type="range" min="0" max="12" step="1" />
       </label>
     </div>
   </div>
