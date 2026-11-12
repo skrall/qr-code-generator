@@ -1,0 +1,39 @@
+name: dependabot-auto-merge
+
+# Merges Dependabot's pull requests, but only once the build workflow has passed.
+# Keyed off workflow_run rather than `pull_request --auto` so that the merge is gated
+# on the actual test result instead of on branch protection / auto-merge being enabled
+# in the repository settings.
+on:
+  workflow_run:
+    workflows: [ build ]
+    types: [ completed ]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' && startsWith(github.event.workflow_run.head_branch, 'dependabot/') }}
+    runs-on: ubuntu-latest
+    steps:
+      # --repo is what makes this work, and the job has no checkout on purpose. `gh pr merge`
+      # resolves the repository from the local git remote, so without it the command fails with
+      # "failed to run git: not a git repository" before it ever reaches the API.
+      #
+      # --match-head-commit closes the race the gating exists to prevent: Dependabot can push
+      # again between the check passing and this job starting, and head_sha is the commit the
+      # passing run actually tested. Refusing to merge anything else is the whole point.
+      #
+      # No --delete-branch: it is a local git operation as much as a remote one. Dependabot
+      # removes its own branch once the pull request merges.
+      - name: Merge pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          gh pr merge "$PR_NUMBER" --squash \
+            --repo "$GITHUB_REPOSITORY" \
+            --match-head-commit "$HEAD_SHA"
