@@ -6,7 +6,7 @@
  */
 
 export type ErrorCorrection = 'LOW' | 'MEDIUM' | 'QUARTILE' | 'HIGH'
-export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS' | 'STAR'
+export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS' | 'STAR' | 'LIQUID'
 export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE' | 'LEAF' | 'DIAMOND'
 export type QrFormat = 'png' | 'svg'
 

@@ -11,5 +11,10 @@ public enum ModuleShape {
     /** Circles with a small gap around them. */
     DOTS,
     /** Four-point stars whose tips meet the edges of the module cell. */
-    STAR
+    STAR,
+    /**
+     * Rounded modules merged into their neighbours, so a run of dark modules becomes one
+     * continuous bar rather than a chain of separate shapes.
+     */
+    LIQUID
 }

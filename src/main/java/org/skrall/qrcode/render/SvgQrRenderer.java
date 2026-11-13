@@ -20,6 +20,14 @@ public class SvgQrRenderer {
     /** The side of a finder pattern, in modules. */
     private static final int FINDER = 7;
 
+    /**
+     * Corner radius of a liquid module, as a fraction of the module's side.
+     *
+     * <p>Kept below a half so the centre of every module stays solid: a reader samples the centre,
+     * not the rounded edge.
+     */
+    private static final double LIQUID_RADIUS = 0.4;
+
     public byte[] render(BitMatrix matrix, RenderOptions options) {
         int dimension = matrix.getWidth();
         int size = options.size();
@@ -39,7 +47,7 @@ public class SvgQrRenderer {
         for (int row = 0; row < dimension; row++) {
             for (int column = 0; column < dimension; column++) {
                 if (matrix.get(column, row) && !isFinder(row, column, dimension)) {
-                    appendModule(svg, column, row, scale, options);
+                    appendModule(svg, matrix, column, row, dimension, scale, options);
                 }
             }
         }
@@ -60,20 +68,37 @@ public class SvgQrRenderer {
                 || (row >= dimension - FINDER && column < FINDER);
     }
 
+    /**
+     * Whether a cell is a dark module outside the finder patterns.
+     *
+     * <p>Finder cells count as light so a liquid bridge never reaches into an eye. The eye is
+     * drawn afterwards, and its shape may not cover a protrusion from the module pass.
+     */
+    private static boolean isDark(BitMatrix matrix, int row, int column, int dimension) {
+        return row >= 0 && row < dimension
+                && column >= 0 && column < dimension
+                && matrix.get(column, row)
+                && !isFinder(row, column, dimension);
+    }
+
     private static double offset(int module, RenderOptions options, double scale) {
         return (module + options.margin()) * scale;
     }
 
-    private static void appendModule(StringBuilder svg, int column, int row, double scale, RenderOptions options) {
+    private static void appendModule(
+            StringBuilder svg,
+            BitMatrix matrix,
+            int column,
+            int row,
+            int dimension,
+            double scale,
+            RenderOptions options) {
+
         double x = (column + options.margin()) * scale;
         double y = (row + options.margin()) * scale;
         switch (options.moduleShape()) {
-            case SQUARE -> svg.append("    <rect x=\"").append(num(x)).append("\" y=\"").append(num(y))
-                    .append("\" width=\"").append(num(scale)).append("\" height=\"").append(num(scale))
-                    .append("\"/>\n");
-            case ROUNDED -> svg.append("    <rect x=\"").append(num(x)).append("\" y=\"").append(num(y))
-                    .append("\" width=\"").append(num(scale)).append("\" height=\"").append(num(scale))
-                    .append("\" rx=\"").append(num(scale * 0.3)).append("\"/>\n");
+            case SQUARE -> appendModuleRect(svg, x, y, scale, scale, 0);
+            case ROUNDED -> appendModuleRect(svg, x, y, scale, scale, scale * 0.3);
             case DOTS -> {
                 double diameter = scale * 0.86;
                 double radius = diameter / 2;
@@ -83,7 +108,49 @@ public class SvgQrRenderer {
                         .append("\" r=\"").append(num(radius)).append("\"/>\n");
             }
             case STAR -> svg.append("    <path d=\"").append(starPath(x, y, scale)).append("\"/>\n");
+            case LIQUID -> appendLiquidModule(svg, matrix, column, row, dimension, x, y, scale);
         }
+    }
+
+    /**
+     * A rounded module plus bridges to its right and lower neighbours.
+     *
+     * <p>Each bridge spans the full height (or width) of the shared edge and reaches a corner
+     * radius into both cells. That squares off the shared side, so a run of modules reads as one
+     * rounded bar instead of two circles joined by a narrow neck.
+     */
+    private static void appendLiquidModule(
+            StringBuilder svg,
+            BitMatrix matrix,
+            int column,
+            int row,
+            int dimension,
+            double x,
+            double y,
+            double scale) {
+
+        double radius = scale * LIQUID_RADIUS;
+        appendModuleRect(svg, x, y, scale, scale, radius);
+
+        if (isDark(matrix, row, column + 1, dimension)) {
+            appendModuleRect(svg, x + scale - radius, y, radius * 2, scale, 0);
+        }
+        if (isDark(matrix, row + 1, column, dimension)) {
+            appendModuleRect(svg, x, y + scale - radius, scale, radius * 2, 0);
+        }
+    }
+
+    /** A module rect inside the foreground group, so it inherits the group's fill. */
+    private static void appendModuleRect(
+            StringBuilder svg, double x, double y, double width, double height, double radius) {
+
+        svg.append("    <rect x=\"").append(num(x)).append("\" y=\"").append(num(y))
+                .append("\" width=\"").append(num(width)).append("\" height=\"").append(num(height))
+                .append('"');
+        if (radius > 0) {
+            svg.append(" rx=\"").append(num(radius)).append('"');
+        }
+        svg.append("/>\n");
     }
 
     /** Mirrors {@link PngQrRenderer}'s star: wide waist, tips at the middle of each cell edge. */

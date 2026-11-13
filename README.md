@@ -4,7 +4,8 @@ A QR code generator that renders the code itself, so the modules, the three corn
 an embedded logo can all be shaped. It is a Spring Boot service with a Vue UI, and both are served
 by the same process.
 
-- **Shaped modules** — squares, rounded squares, dots or four-point stars.
+- **Shaped modules** — squares, rounded squares, dots, four-point stars or connected liquid
+  modules.
 - **Shaped corner patterns** — square, rounded, circular, leaf or diamond finder patterns,
   drawn separately so the outer ring, the gap and the centre stay concentric.
 - **Logos** — drop in a PNG, JPEG or GIF and it is centred on a light plate. The plate's size,
@@ -109,7 +110,7 @@ black-on-white code.
 | `errorCorrection` | `LOW`, `MEDIUM`, `QUARTILE`, `HIGH` | `MEDIUM` |
 | `foreground`      | `#rrggbb`                     | `#000000`    |
 | `background`      | `#rrggbb`                     | `#ffffff`    |
-| `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR` | `SQUARE` |
+| `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR`, `LIQUID` | `SQUARE` |
 | `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND` | `SQUARE` |
 | `finderColor`     | `#rrggbb`                     | `foreground` |
 
@@ -255,6 +256,11 @@ two mirror each other deliberately, which is why they sit side by side.
 The quiet zone is applied by the renderers in module units rather than by ZXing, so `margin` means
 the same thing at every size. The finder patterns are skipped in the module pass and drawn as
 whole shapes afterwards, because a per-module shape cannot keep their three rings concentric.
+
+`LIQUID` modules are a rounded square per dark module plus a bridge to each dark neighbour on the
+right and below. The bridge spans the full shared edge, so a run of modules becomes one rounded
+bar rather than a chain of circles joined by a narrow neck. Finder cells count as light for those
+bridges, which keeps the connection from reaching into an eye that is drawn afterwards.
 
 ## Notes
 
