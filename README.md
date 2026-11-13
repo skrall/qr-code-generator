@@ -20,6 +20,8 @@ by the same process.
   bitcoin.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
   expiry, a searchable list and hit counts.
+- **Sign-in** — HTTP Basic by default, or an identity provider (Okta, Entra ID), or a trusted
+  reverse proxy, with an operator role for changing short links. The redirects stay public.
 - **PNG and SVG** — PNG for anything that needs a bitmap, SVG for print and for embedding the
   original logo without resampling.
 - **Scan check** — the preview renders the code again and reads it back, as drawn, shrunk and
@@ -40,8 +42,16 @@ The project pins Java 25 in `mise.toml` for anyone using [mise](https://mise.jdx
 activated, `./mvnw` picks that JDK up automatically. Without it, the wrapper uses whatever `java`
 is on your `PATH`. The build targets Java 25 bytecode either way, so a newer JDK works too.
 
-Then open <http://localhost:8080>. The same process serves the UI, the API and the OpenAPI
-document at `/v3/api-docs`.
+Then open <http://localhost:8080> and sign in as `operator` with the password `change-me-on-deploy`.
+Set your own before the app is reachable by anyone else:
+
+```bash
+QR_CODE_PASSWORD='something-long' ./mvnw spring-boot:run
+```
+
+The same process serves the UI, the API and the OpenAPI document at `/v3/api-docs`. See
+[Authentication](#authentication) for the other sign-in modes, or `APP_SECURITY_MODE=none` to turn
+sign-in off on a machine nobody else can reach.
 
 Short links live in `./data/qr-code-generator.mv.db`, created on first use. A link is only useful
 if a phone can reach it, so when the service is not running on the scanner's own machine, give it
@@ -87,6 +97,7 @@ and so can any other client.
 
 ```bash
 curl -X POST 'http://localhost:8080/api/qr-codes?format=png' \
+  --user operator:change-me-on-deploy \
   -H 'Content-Type: application/json' \
   -d '{
     "data": "https://example.com",
@@ -368,6 +379,7 @@ A payload too long for the chosen error-correction level is a 400 with a detail 
 
 ```bash
 curl -X POST http://localhost:8080/api/links \
+  --user operator:change-me-on-deploy \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com/page","expiresAt":"2026-12-01T00:00:00Z"}'
 ```
@@ -419,12 +431,113 @@ Flyway creates the schema at startup and Hibernate validates its mapping against
 | Path                | Purpose                        |
 | ------------------- | ------------------------------ |
 | `/api/links`        | Create, list, edit and delete short links |
+| `/api/me`           | The signed-in user and whether they hold the operator role |
 | `/r/{code}`         | Redirect for a short link      |
 | `/actuator/health`  | Liveness and readiness         |
 | `/v3/api-docs`      | The OpenAPI document           |
 
 The server binds `127.0.0.1:8080` by default. Override `SERVER_ADDRESS` or `SERVER_PORT` to change
 that.
+
+## Authentication
+
+Sign-in follows mailoverlord's design, so the two deploy the same way. `app.security.mode`
+(or `APP_SECURITY_MODE`) picks one of four mechanisms; they are alternatives, not layers.
+
+| Mode | Who signs in | Held by the app | Use when |
+| --- | --- | --- | --- |
+| `basic` (default) | The user, via HTTP Basic | Nothing: the credential rides every request | One shared password is enough |
+| `oidc` | An identity provider, via the authorization code flow | A session cookie | You already run Okta or Entra ID |
+| `header` | A reverse proxy in front of the app | Nothing: the proxy asserts the identity | The edge already authenticates |
+| `none` | Nobody | Nothing | A machine nobody else can reach, and the test suite |
+
+What is guarded is the same in every mode:
+
+- **Public:** `/r/{code}`, because a phone scanning a printed code cannot sign in, plus
+  `/actuator/health`, `/actuator/info` and `/v3/api-docs`.
+- **Signed in (VIEWER):** everything else: the UI, rendering, the scan check and listing links.
+- **OPERATOR:** creating, editing and deleting short links, and any other actuator endpoint.
+  An OPERATOR is always a VIEWER too.
+
+A refusal is an RFC 9457 problem document: 401 when nobody is signed in, 403 when the user lacks
+the role (or, under OIDC, when a change arrives without its CSRF token). The UI hides the link
+actions from a viewer, and shows who is signed in in the header.
+
+### Basic
+
+The `spring.security.user` identity, `operator` by default, is an OPERATOR. Hand the same
+password to others with a narrower role by naming them:
+
+```yaml
+app:
+  security:
+    viewer-users: [alice, bob]     # render and list only
+    operator-users: [carol]        # may change links too
+```
+
+A `fetch` never shows the browser's Basic prompt, so when the API answers 401 the UI sends the
+browser to `/login`, a top-level navigation that does. `curl --user operator:password` works
+against the API the same way.
+
+### OIDC
+
+Set `app.security.mode=oidc`, configure one client registration, and give the provider the
+redirect URI `{base-url}/login/oauth2/code/{registrationId}`:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          okta:                    # or "entra" for Microsoft Entra ID
+            client-id: ...
+            client-secret: ...
+            provider: okta
+        provider:
+          okta:
+            issuer-uri: https://yourdomain.okta.com/oauth2/default
+          # entra:
+          #   issuer-uri: https://login.microsoftonline.com/{tenant-id}/v2.0
+app:
+  security:
+    mode: oidc
+    roles-claim: groups            # Okta default; use "roles" for Entra ID
+    operator-groups: [qr-operators]
+```
+
+`issuer-uri` is the whole vendor difference: Spring reads the provider's discovery document from
+it. For Entra ID, define the operator group under *App roles* so it lands in the `roles` claim.
+The claim is read as an array or a single string and matched case-insensitively; anyone who can
+sign in is at least a VIEWER.
+
+The session is a cookie, so changes need a CSRF token. The server writes a readable `XSRF-TOKEN`
+cookie and the UI echoes it as `X-XSRF-TOKEN`. Logout is `POST /logout` with the same token; it
+ends the local session, not the provider's.
+
+### Trusted header
+
+Behind a proxy that signs people in (oauth2-proxy, nginx `auth_request`), the app can trust the
+identity the proxy sets:
+
+```yaml
+app:
+  security:
+    mode: header
+    header: X-Auth-Request-User
+    groups-header: X-Auth-Request-Groups
+    operator-groups: [qr-operators]
+    trusted-proxies: [127.0.0.1/32]    # where the proxy connects from
+server:
+  forward-headers-strategy: framework
+```
+
+The headers are believed only on connections from `trusted-proxies`, judged by the socket's own
+peer address rather than `X-Forwarded-For`. The same header from anywhere else gets a 401. The
+proxy must overwrite the identity headers on every request, and the app should only be reachable
+through it. Startup refuses `mode: header` without a header name and an allowlist. A 401 in this
+mode names no login page, because the proxy owns sign-in, so the UI shows the reason instead of
+reloading.
 
 ## How it fits together
 
@@ -435,6 +548,7 @@ src/main/java/org/skrall/qrcode/
 ├── check/          reads a rendered code back for the scan check
 ├── render/         matrix → PNG (Java2D) or SVG
 ├── link/           short link entity, repository and redirect resolution
+├── security/       the four sign-in modes, role mapping and the proxy allowlist
 └── web/            the controllers, the error advice and the format converter
 
 src/main/resources/db/migration/

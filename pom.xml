@@ -99,6 +99,19 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!--
+            Authentication and the OPERATOR/VIEWER role split, modelled on mailoverlord. The
+            filter chain is selected by app.security.mode: basic, oidc, header or none.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+
         <!-- QR encoding. Rendering is done here so modules and eyes can be shaped. -->
         <dependency>
             <groupId>com.google.zxing</groupId>
@@ -109,6 +122,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- Spring Boot 4 moved MockMvc test support out of spring-boot-starter-test. -->

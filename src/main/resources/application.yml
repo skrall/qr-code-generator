@@ -2,6 +2,13 @@ spring:
   application:
     name: qr-code-generator
 
+  # The Basic identity, an OPERATOR. Override QR_CODE_PASSWORD or spring.security.user.password;
+  # leaving this default in place means anyone who can reach the port can sign in.
+  security:
+    user:
+      name: operator
+      password: ${QR_CODE_PASSWORD:${SPRING_SECURITY_USER_PASSWORD:change-me-on-deploy}}
+
   mvc:
     # RFC 9457 error bodies, so a rejected request explains itself instead of returning an
     # empty body with a status.
@@ -31,6 +38,28 @@ spring:
     enabled: true
 
 app:
+  # Who may use the generator. "basic" asks for the spring.security.user identity above, an
+  # OPERATOR who may create, edit and delete short links; add names to viewer-users to hand the
+  # same password to people who should only render codes and list links. Set the mode to "oidc"
+  # to sign people in through an identity provider, to "header" to trust the identity a reverse
+  # proxy asserts (both in the README), or to "none" to turn sign-in off, which is what the test
+  # suite does. The short-link redirects are public in every mode.
+  security:
+    mode: ${APP_SECURITY_MODE:basic}
+    operator-users: []
+    viewer-users: []
+
+    # With mode: oidc the role claim and the operator groups decide who may change links.
+    # roles-claim: groups        # Okta default; use "roles" for Microsoft Entra ID
+    # operator-groups: []
+
+    # With mode: header the reverse proxy signs people in and sets these two headers, and the
+    # allowlist says whose connections the identity is believed on. Startup refuses mode:
+    # header without both a header and an allowlist.
+    #   header: X-Auth-Request-User
+    #   groups-header: X-Auth-Request-Groups
+    #   trusted-proxies: [127.0.0.1/32]
+
   # The address a phone must be able to reach. The default is only right for this machine:
   # a code scanned elsewhere has to point at a LAN address or the name behind a reverse proxy.
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}

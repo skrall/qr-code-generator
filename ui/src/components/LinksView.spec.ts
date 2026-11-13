@@ -33,10 +33,10 @@ function response(body: unknown, status = 200): Response {
   } as Response
 }
 
-function mount(): HTMLElement {
+function mount(operator = true): HTMLElement {
   host = document.createElement('div')
   document.body.appendChild(host)
-  app = createApp({ render: () => h(LinksView) })
+  app = createApp({ render: () => h(LinksView, { operator }) })
   app.mount(host)
   return host
 }
@@ -200,9 +200,22 @@ describe('LinksView', () => {
 
     expect(fetchMock.mock.calls[1]).toEqual([
       '/api/links/abc123XYZ',
-      { method: 'DELETE' },
+      expect.objectContaining({ method: 'DELETE' }),
     ])
     expect(container.textContent).toContain('No links yet')
+  })
+
+  test('lists links for a viewer without the edit and delete actions', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(page([link()]))))
+
+    const container = mount(false)
+    await flush()
+
+    expect(container.querySelector('.links-table')).not.toBeNull()
+    expect(container.textContent).toContain('abc123XYZ')
+    const labels = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim())
+    expect(labels).not.toContain('Edit')
+    expect(labels).not.toContain('Delete')
   })
 
   test('pages through a longer list', async () => {

@@ -12,6 +12,14 @@ import { normalizeUrl } from '../qr/types'
  * the link exists. Creating is still an explicit action: only the draft is shown before then,
  * and the parent disables downloads until the real short URL is available.
  */
+const props = withDefaults(
+  defineProps<{
+    /** False for a VIEWER: the server refuses creation, so the form says so up front. */
+    operator?: boolean
+  }>(),
+  { operator: true },
+)
+
 const emit = defineEmits<{
   created: [link: ShortLink]
   cleared: []
@@ -36,7 +44,8 @@ const customIsFuture = computed(() => {
 })
 
 const canCreate = computed(
-  () => destination.value.trim().length > 0 && customIsFuture.value && !busy.value,
+  () =>
+    props.operator && destination.value.trim().length > 0 && customIsFuture.value && !busy.value,
 )
 
 const DAY = 24 * 60 * 60 * 1000
@@ -152,7 +161,11 @@ watch([expiry, customExpiry], () => {
       </button>
     </div>
 
-    <p v-if="!created" class="field-help">
+    <p v-if="!operator" class="field-help">
+      Creating short links needs the operator role. The preview still shows a draft of the
+      destination.
+    </p>
+    <p v-else-if="!created" class="field-help">
       The preview shows the destination as a draft. Create the link to encode the short URL;
       pressing Enter in the destination field does the same thing.
     </p>

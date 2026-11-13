@@ -70,6 +70,9 @@ describe('App with a short link', () => {
   test('previews the destination while typing, then the short link after creation', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
+      if (url === '/api/me') {
+        return json({ name: 'operator', operator: true })
+      }
       if (url === '/api/links') {
         return json(stored, 201)
       }
@@ -128,5 +131,50 @@ describe('App with a short link', () => {
     expect(host.querySelector('.notice')).toBeNull()
     expect(button(host, 'Download PNG').disabled).toBe(false)
     expect(button(host, 'Download SVG').disabled).toBe(false)
+  })
+})
+
+describe('App for a viewer', () => {
+  test('shows who is signed in and keeps Create link disabled', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input)
+        if (url === '/api/me') {
+          return json({ name: 'reader', operator: false })
+        }
+        if (url === '/api/qr-codes/check') {
+          return json({ verdict: 'PASS', version: 3, modules: 29, trials: [], hints: [] })
+        }
+        if (url.startsWith('/api/qr-codes?')) {
+          return png()
+        }
+        throw new Error(`Unexpected request: ${url}`)
+      }),
+    )
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    app = createApp(QrApp)
+    app.mount(host)
+    await settle()
+
+    expect(host.querySelector('.signed-in')?.textContent).toContain('reader')
+    expect(host.querySelector('.signed-in')?.textContent).toContain('viewer')
+
+    button(host, 'Short link').click()
+    await nextTick()
+    const destination = host.querySelector('#shortlink-destination')
+    if (!(destination instanceof HTMLInputElement)) {
+      throw new Error('No destination field')
+    }
+    destination.value = 'example.com/page'
+    destination.dispatchEvent(new Event('input', { bubbles: true }))
+    await settle(300)
+
+    expect(button(host, 'Create link').disabled).toBe(true)
+    expect(host.textContent).toContain('Creating short links needs the operator role')
   })
 })
