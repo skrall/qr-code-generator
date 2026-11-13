@@ -82,6 +82,17 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - Every UI request goes through `send` in `ui/src/api/client.ts`, which adds the CSRF header and
   turns a 401 into a navigation (Basic, OIDC) or a shown message (header mode).
 
+## Docker
+
+- The image comes from `./mvnw spring-boot:build-image` (buildpacks); there is no Dockerfile.
+  `BPE_SERVER_ADDRESS=0.0.0.0` in `pom.xml` is what makes the container reachable; it does not
+  show in `docker image inspect`'s env because buildpacks apply it at launch.
+- `docker-compose.yml` has an `h2` and a `postgres` profile, after mailoverlord's. `.env` is
+  git-ignored; `.env.example` is the template and must list every variable the file reads.
+- To try the compose file without touching a real `.env` or its volumes, use another project
+  name and port: `COMPOSE_PROFILES=postgres APP_PORT=18080 QR_CODE_PASSWORD=x POSTGRES_PASSWORD=y
+  docker compose -p qrtest up -d`, then `docker compose -p qrtest down -v`.
+
 ## Short links
 
 - Flyway owns the schema. Add a new `V{n}__*.sql` under `src/main/resources/db/migration` rather
