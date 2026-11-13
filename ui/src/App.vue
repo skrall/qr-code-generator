@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import {
   checkQrCode,
+  currentUser,
+  type CurrentUser,
   renderQrCode,
   type QrFormat,
   type QrStyle,
@@ -91,6 +93,21 @@ function linkCleared(): void {
 function linkDraft(url: string): void {
   draftUrl.value = url
 }
+
+/**
+ * Who is signed in. Until it is known the link actions stay hidden: showing them to a viewer for
+ * a moment, then taking them away, is worse than showing them a moment late.
+ */
+const user = ref<CurrentUser | null>(null)
+const operator = computed(() => user.value?.operator ?? false)
+
+onMounted(async () => {
+  try {
+    user.value = await currentUser()
+  } catch {
+    // A 401 has already sent the browser to sign in; anything else leaves the actions hidden.
+  }
+})
 
 const previewUrl = ref('')
 const state = ref<PreviewState>('idle')
@@ -248,6 +265,9 @@ onUnmounted(() => {
           </button>
         </nav>
         <a class="api-link" href="/v3/api-docs" target="_blank" rel="noreferrer">OpenAPI</a>
+        <span v-if="user?.name" class="signed-in" :title="operator ? 'Operator' : 'Viewer'">
+          {{ user.name }}<span class="role">{{ operator ? 'operator' : 'viewer' }}</span>
+        </span>
       </div>
     </header>
 
@@ -275,6 +295,7 @@ onUnmounted(() => {
                returns, so the create step lives in its own component. -->
           <ShortLinkForm
             v-if="typeId === 'shortlink'"
+            :operator="operator"
             @created="linkCreated"
             @cleared="linkCleared"
             @draft="linkDraft"
@@ -336,7 +357,7 @@ onUnmounted(() => {
     </main>
 
     <main v-if="view === 'links'" class="workspace single">
-      <LinksView />
+      <LinksView :operator="operator" />
     </main>
   </div>
 </template>

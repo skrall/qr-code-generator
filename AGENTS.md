@@ -65,6 +65,23 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - The UI runs the check after the render succeeds, not beside it, so a rejected style is
   reported once and the image is never held up by the check.
 
+## Security
+
+- Modelled on mailoverlord (`~/Work/java/mailoverlord`, `config/SecurityConfig.java`). Keep the
+  two aligned when changing either; the role mappers, header filter and proxy matcher are ports.
+- The general suite runs under `app.security.mode=none` (set in the test
+  `application.properties`). Each mode has its own `*SecurityTest` that turns it back on.
+- All four chains share `SecurityConfig.authorize`. A new public path goes there, once.
+- `/r/**` must stay public in every mode: printed codes are scanned by phones that never sign in.
+- OPERATOR is enforced with `@PreAuthorize` on the link controller's create, update and delete.
+  Method security is off under `none`, so those annotations are inert there.
+- OIDC uses `csrf.spa()`, not a bare `CookieCsrfTokenRepository`: the default request handler
+  defers the cookie and expects a masked token, so an SPA echoing the cookie would always get
+  403. `OidcSecurityTest.theSpaCsrfRoundTripIsAccepted` does the real round trip and fails
+  without `spa()`.
+- Every UI request goes through `send` in `ui/src/api/client.ts`, which adds the CSRF header and
+  turns a 401 into a navigation (Basic, OIDC) or a shown message (header mode).
+
 ## Short links
 
 - Flyway owns the schema. Add a new `V{n}__*.sql` under `src/main/resources/db/migration` rather

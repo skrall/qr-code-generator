@@ -5,7 +5,12 @@ import { copyText } from '../clipboard'
 import { formatDate, toDateTimeInput } from '../format'
 import { normalizeUrl } from '../qr/types'
 
-/** The stored links, with a debounced search, an edit dialog and a two-step delete. */
+/**
+ * The stored links, with a debounced search, an edit dialog and a two-step delete. A VIEWER sees
+ * the list without the edit and delete actions, which the server would refuse.
+ */
+withDefaults(defineProps<{ operator?: boolean }>(), { operator: true })
+
 const PAGE_SIZE = 25
 
 const query = ref('')
@@ -188,7 +193,7 @@ onUnmounted(() => {
             <th>Expires</th>
             <th class="numeric">Hits</th>
             <th>Last hit</th>
-            <th><span class="visually-hidden">Actions</span></th>
+            <th v-if="operator"><span class="visually-hidden">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -206,7 +211,7 @@ onUnmounted(() => {
             <td>{{ link.expiresAt ? formatDate(link.expiresAt) : 'Never' }}</td>
             <td class="numeric">{{ link.hitCount }}</td>
             <td>{{ formatDate(link.lastHitAt) }}</td>
-            <td class="cell-actions">
+            <td v-if="operator" class="cell-actions">
               <button type="button" @click="startEdit(link)">Edit</button>
               <button
                 type="button"

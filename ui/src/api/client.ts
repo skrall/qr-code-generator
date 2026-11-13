@@ -158,7 +158,7 @@ export async function renderQrCode(
   format: QrFormat,
   signal?: AbortSignal,
 ): Promise<Blob> {
-  const response = await fetch(`/api/qr-codes?format=${format}`, {
+  const response = await send(`/api/qr-codes?format=${format}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: requestBody(request),
@@ -173,7 +173,7 @@ export async function renderQrCode(
 
 /** Renders the code on the server and reads it back, as plain and as a phone might see it. */
 export async function checkQrCode(request: RenderRequest, signal?: AbortSignal): Promise<ScanCheck> {
-  const response = await fetch('/api/qr-codes/check', {
+  const response = await send('/api/qr-codes/check', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: requestBody(request),
@@ -231,7 +231,7 @@ export async function readBackgroundImageFile(file: File): Promise<QrBackgroundI
 
 /** Stores a destination and returns the short link that redirects to it. */
 export async function createLink(input: LinkInput, signal?: AbortSignal): Promise<ShortLink> {
-  const response = await fetch('/api/links', {
+  const response = await send('/api/links', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
@@ -255,7 +255,7 @@ export async function updateLink(
   input: LinkInput,
   signal?: AbortSignal,
 ): Promise<ShortLink> {
-  const response = await fetch(`/api/links/${encodeURIComponent(code)}`, {
+  const response = await send(`/api/links/${encodeURIComponent(code)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
@@ -281,7 +281,7 @@ export async function listLinks(
     params.set('q', trimmed)
   }
 
-  const response = await fetch(`/api/links?${params.toString()}`, { signal })
+  const response = await send(`/api/links?${params.toString()}`, { signal })
   if (!response.ok) {
     throw new Error(await problemDetail(response))
   }
@@ -290,10 +290,99 @@ export async function listLinks(
 
 /** Soft deletes a link: its code then answers 410 Gone instead of 404. */
 export async function deleteLink(code: string): Promise<void> {
-  const response = await fetch(`/api/links/${encodeURIComponent(code)}`, { method: 'DELETE' })
+  const response = await send(`/api/links/${encodeURIComponent(code)}`, { method: 'DELETE' })
   if (!response.ok) {
     throw new Error(await problemDetail(response))
   }
+}
+
+/** Who is signed in, and whether they may create, edit and delete short links. */
+export interface CurrentUser {
+  /** Null when sign-in is turned off on the server. */
+  name: string | null
+  operator: boolean
+}
+
+export async function currentUser(signal?: AbortSignal): Promise<CurrentUser> {
+  const response = await send('/api/me', { signal })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as CurrentUser
+}
+
+/**
+ * Every API call goes through here, for the two things sign-in adds to a request.
+ *
+ * <p>Under OIDC the session is a cookie, so a state-changing request needs the CSRF token: the
+ * server leaves it in a readable XSRF-TOKEN cookie and expects it back in X-XSRF-TOKEN. Basic
+ * and header modes set no such cookie, and the request goes out unchanged.
+ *
+ * <p>A 401 is handled here so no caller has to. Basic and OIDC name a login-url: Basic's prompt
+ * only appears on a top-level navigation, and OIDC's provider redirect cannot be followed by a
+ * fetch, so the browser is sent there. Header mode names none, because the proxy owns sign-in and
+ * reloading would loop; its detail is thrown for the caller to show. A 401 that is not one of
+ * ours (an empty body, a proxy's HTML page) goes to /login on the same reasoning as Basic.
+ */
+async function send(path: string, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase()
+  const response = await fetch(path, {
+    ...init,
+    headers: { ...csrfHeaders(method), ...(init.headers as Record<string, string> | undefined) },
+  })
+  if (response.status === 401) {
+    return unauthorized(response)
+  }
+  return response
+}
+
+async function unauthorized(response: Response): Promise<never> {
+  const problem = await unauthorizedProblem(response)
+  const loginUrl = problem === null ? '/login' : problem.loginUrl
+  if (loginUrl !== null) {
+    window.location.assign(loginUrl)
+    throw new Error('Sign in required.')
+  }
+  throw new Error(problem?.detail ?? 'Sign in required.')
+}
+
+/** The login-url and detail of a 401 the app wrote, or null for any other kind of 401. */
+async function unauthorizedProblem(
+  response: Response,
+): Promise<{ loginUrl: string | null; detail: string | null } | null> {
+  let body: string
+  try {
+    body = await response.text()
+  } catch {
+    return null
+  }
+  if (body.trim() === '') {
+    return null
+  }
+  try {
+    const problem: unknown = JSON.parse(body)
+    if (typeof problem !== 'object' || problem === null) {
+      return null
+    }
+    const fields = problem as { 'login-url'?: unknown; detail?: unknown }
+    return {
+      loginUrl:
+        typeof fields['login-url'] === 'string' && fields['login-url'] !== ''
+          ? fields['login-url']
+          : null,
+      detail: typeof fields.detail === 'string' && fields.detail !== '' ? fields.detail : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+function csrfHeaders(method: string): Record<string, string> {
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
+    return {}
+  }
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/)
+  return match === null ? {} : { 'X-XSRF-TOKEN': decodeURIComponent(match[1]) }
 }
 
 /** Reads the RFC 9457 detail the server sends, falling back to the status. */

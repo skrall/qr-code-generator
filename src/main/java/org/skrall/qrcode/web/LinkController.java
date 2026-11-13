@@ -14,6 +14,7 @@ import org.skrall.qrcode.model.ShortLinkResponse;
 import org.skrall.qrcode.model.UpdateLinkRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,6 +27,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Stores destinations and hands back the short links that redirect to them.
+ *
+ * <p>Creating, editing and deleting a link need the OPERATOR role whenever security is on; a
+ * VIEWER may list them. Method security is off under {@code app.security.mode=none}, so the
+ * annotations are inert there.
  */
 @RestController
 @RequestMapping("/api/links")
@@ -39,6 +44,7 @@ public class LinkController {
         this.properties = properties;
     }
 
+    @PreAuthorize("hasRole('OPERATOR')")
     @PostMapping
     @Operation(summary = "Create a short link", description = """
             Stores the destination and returns a link that redirects to it. The destination must
@@ -75,6 +81,7 @@ public class LinkController {
                 links.getSize());
     }
 
+    @PreAuthorize("hasRole('OPERATOR')")
     @PutMapping("/{code}")
     @Operation(summary = "Edit a short link", description = """
             Changes the destination and expiry without changing the code. A code that has
@@ -93,6 +100,7 @@ public class LinkController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @PreAuthorize("hasRole('OPERATOR')")
     @DeleteMapping("/{code}")
     @Operation(summary = "Delete a short link", description = """
             Soft deletes the link. The code then answers 410 Gone rather than 404, because a
