@@ -41,6 +41,10 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   finder artwork, so the artwork is decoded first) before the modules are drawn. Keep that order: the
   image goes down first, then modules and eyes, so the finder gaps and logo plate stay solid. The
   SVG renderer embeds the washed PNG, not the original upload.
+- A gradient's line and circle come from `Gradient`, which both renderers read; don't compute
+  gradient geometry inside a renderer. It spans the canvas in user space, not each module. Its
+  check is on the two stops only, which is exact because both formats interpolate in sRGB and
+  luminance is linear in sRGB. Adding stops or a linear-light interpolation would break that.
 
 ## Short links
 

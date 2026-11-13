@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import type { ErrorCorrection, FinderShape, ModuleShape, QrStyle } from '../api/client'
+import type {
+  ErrorCorrection,
+  FinderShape,
+  GradientType,
+  ModuleShape,
+  QrStyle,
+} from '../api/client'
 import BackgroundImagePanel from './BackgroundImagePanel.vue'
 import FinderArtworkPanel from './FinderArtworkPanel.vue'
 
@@ -97,6 +103,11 @@ const finderShapes: readonly { value: FinderShape; label: string }[] = [
   { value: 'CUSTOM', label: 'Custom' },
 ]
 
+const gradientTypes: readonly { value: GradientType; label: string }[] = [
+  { value: 'LINEAR', label: 'Linear' },
+  { value: 'RADIAL', label: 'Radial' },
+]
+
 const errorCorrections: readonly { value: ErrorCorrection; label: string }[] = [
   { value: 'LOW', label: 'Low — 7% recoverable, smallest' },
   { value: 'MEDIUM', label: 'Medium — 15% recoverable' },
@@ -110,6 +121,21 @@ function apply(preset: Preset): void {
   props.qrStyle.foreground = preset.foreground
   props.qrStyle.background = preset.background
   props.qrStyle.finderColor = preset.finderColor
+  // A preset is a whole look; a gradient left on would hide its foreground colour.
+  props.qrStyle.gradient = null
+}
+
+/** Starts from the current colours, so switching it on changes as little as possible. */
+function setGradient(enabled: boolean): void {
+  props.qrStyle.gradient = enabled
+    ? {
+        type: 'LINEAR',
+        start: props.qrStyle.foreground,
+        end: props.qrStyle.finderColor,
+        angle: 135,
+        finders: false,
+      }
+    : null
 }
 
 function isActive(preset: Preset): boolean {
@@ -118,7 +144,8 @@ function isActive(preset: Preset): boolean {
     props.qrStyle.finderShape === preset.finderShape &&
     props.qrStyle.foreground === preset.foreground &&
     props.qrStyle.background === preset.background &&
-    props.qrStyle.finderColor === preset.finderColor
+    props.qrStyle.finderColor === preset.finderColor &&
+    props.qrStyle.gradient === null
   )
 }
 </script>
@@ -182,7 +209,7 @@ function isActive(preset: Preset): boolean {
     </div>
 
     <div class="control-grid">
-      <label class="control">
+      <label v-if="!qrStyle.gradient" class="control">
         <span class="control-label">Foreground</span>
         <span class="color-row">
           <input v-model="qrStyle.foreground" type="color" aria-label="Foreground colour" />
@@ -214,6 +241,69 @@ function isActive(preset: Preset): boolean {
           </option>
         </select>
       </label>
+    </div>
+
+    <div class="control gradient-panel">
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          :checked="qrStyle.gradient !== null"
+          aria-label="Gradient"
+          @change="setGradient(($event.target as HTMLInputElement).checked)"
+        />
+        <span>Gradient</span>
+      </label>
+
+      <template v-if="qrStyle.gradient">
+        <div class="segmented" role="group" aria-label="Gradient type">
+          <button
+            v-for="type in gradientTypes"
+            :key="type.value"
+            type="button"
+            :class="{ active: qrStyle.gradient.type === type.value }"
+            :aria-pressed="qrStyle.gradient.type === type.value"
+            @click="qrStyle.gradient.type = type.value"
+          >
+            {{ type.label }}
+          </button>
+        </div>
+
+        <div class="control-grid">
+          <label class="control">
+            <span class="control-label">{{ qrStyle.gradient.type === 'RADIAL' ? 'Centre' : 'Start' }}</span>
+            <span class="color-row">
+              <input v-model="qrStyle.gradient.start" type="color" aria-label="Gradient start colour" />
+              <code>{{ qrStyle.gradient.start }}</code>
+            </span>
+          </label>
+
+          <label class="control">
+            <span class="control-label">{{ qrStyle.gradient.type === 'RADIAL' ? 'Edge' : 'End' }}</span>
+            <span class="color-row">
+              <input v-model="qrStyle.gradient.end" type="color" aria-label="Gradient end colour" />
+              <code>{{ qrStyle.gradient.end }}</code>
+            </span>
+          </label>
+        </div>
+
+        <label v-if="qrStyle.gradient.type === 'LINEAR'" class="control">
+          <span class="control-label">
+            Angle
+            <output>{{ qrStyle.gradient.angle }}°</output>
+          </span>
+          <input v-model.number="qrStyle.gradient.angle" type="range" min="0" max="360" step="15" />
+        </label>
+
+        <label class="checkbox">
+          <input v-model="qrStyle.gradient.finders" type="checkbox" />
+          <span>Corner patterns follow the gradient</span>
+        </label>
+
+        <p class="field-help">
+          Both colours must stand out from the background, and on the same side of it: a gradient
+          that fades into the background would erase part of the code.
+        </p>
+      </template>
     </div>
 
     <div class="control">

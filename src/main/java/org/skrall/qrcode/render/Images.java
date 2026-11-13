@@ -15,6 +15,14 @@ import javax.imageio.ImageIO;
  */
 final class Images {
 
+    /**
+     * The minimum luminance distance, on a 0–255 scale, between an ink and what it is drawn on.
+     *
+     * <p>Shared by the finder artwork, the background image wash and the gradient check, so one
+     * threshold decides what counts as readable.
+     */
+    static final int MIN_CONTRAST = 96;
+
     private Images() {
     }
 

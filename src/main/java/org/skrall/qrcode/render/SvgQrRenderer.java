@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import org.skrall.qrcode.model.FinderShape;
+import org.skrall.qrcode.model.GradientType;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,6 +30,9 @@ public class SvgQrRenderer {
      */
     private static final double LIQUID_RADIUS = 0.4;
 
+    /** The id of the gradient element the modules, and possibly the eyes, are filled with. */
+    private static final String GRADIENT_ID = "qr-gradient";
+
     public byte[] render(BitMatrix matrix, RenderOptions options) {
         int dimension = matrix.getWidth();
         int size = options.size();
@@ -44,6 +48,9 @@ public class SvgQrRenderer {
         if (options.finderShape() == FinderShape.CUSTOM && options.finderArtwork() != null) {
             appendFinderClipPaths(svg, scale);
         }
+        if (options.gradient() != null) {
+            appendGradient(svg, options.gradient(), size);
+        }
         svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
                 .append("\" fill=\"").append(RenderOptions.hex(options.background())).append("\"/>\n");
         if (options.backgroundImage() != null) {
@@ -53,7 +60,7 @@ public class SvgQrRenderer {
                     .append(attribute(options.backgroundImage().dataUrl())).append("\"/>\n");
         }
 
-        svg.append("  <g fill=\"").append(RenderOptions.hex(options.foreground())).append("\">\n");
+        svg.append("  <g fill=\"").append(moduleFill(options)).append("\">\n");
         for (int row = 0; row < dimension; row++) {
             for (int column = 0; column < dimension; column++) {
                 if (matrix.get(column, row) && !isFinder(row, column, dimension)) {
@@ -70,6 +77,54 @@ public class SvgQrRenderer {
         appendLogo(svg, options);
         svg.append("</svg>\n");
         return svg.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The gradient element, in user space so it spans the canvas rather than each module.
+     *
+     * <p>The line or circle comes from {@link Gradient}, the same geometry
+     * {@link PngQrRenderer} builds its {@link java.awt.Paint} from.
+     */
+    private static void appendGradient(StringBuilder svg, Gradient gradient, int size) {
+        svg.append("  <defs>\n");
+        if (gradient.type() == GradientType.RADIAL) {
+            double centre = size / 2.0;
+            svg.append("    <radialGradient id=\"").append(GRADIENT_ID)
+                    .append("\" gradientUnits=\"userSpaceOnUse\" cx=\"").append(num(centre))
+                    .append("\" cy=\"").append(num(centre))
+                    .append("\" r=\"").append(num(gradient.radius(size))).append("\">\n");
+            appendStops(svg, gradient);
+            svg.append("    </radialGradient>\n");
+        } else {
+            Gradient.Line line = gradient.line(size);
+            svg.append("    <linearGradient id=\"").append(GRADIENT_ID)
+                    .append("\" gradientUnits=\"userSpaceOnUse\" x1=\"").append(num(line.x1()))
+                    .append("\" y1=\"").append(num(line.y1()))
+                    .append("\" x2=\"").append(num(line.x2()))
+                    .append("\" y2=\"").append(num(line.y2())).append("\">\n");
+            appendStops(svg, gradient);
+            svg.append("    </linearGradient>\n");
+        }
+        svg.append("  </defs>\n");
+    }
+
+    private static void appendStops(StringBuilder svg, Gradient gradient) {
+        svg.append("      <stop offset=\"0\" stop-color=\"")
+                .append(RenderOptions.hex(gradient.start())).append("\"/>\n");
+        svg.append("      <stop offset=\"1\" stop-color=\"")
+                .append(RenderOptions.hex(gradient.end())).append("\"/>\n");
+    }
+
+    private static String moduleFill(RenderOptions options) {
+        return options.gradient() == null
+                ? RenderOptions.hex(options.foreground())
+                : "url(#" + GRADIENT_ID + ")";
+    }
+
+    private static String finderFill(RenderOptions options) {
+        return options.gradientFinders()
+                ? "url(#" + GRADIENT_ID + ")"
+                : RenderOptions.hex(options.finderColor());
     }
 
     private static boolean isFinder(int row, int column, int dimension) {
@@ -182,7 +237,7 @@ public class SvgQrRenderer {
 
     private static void appendEye(StringBuilder svg, double x, double y, double scale, RenderOptions options) {
         double side = FINDER * scale;
-        String foreground = RenderOptions.hex(options.finderColor());
+        String foreground = finderFill(options);
         String background = RenderOptions.hex(options.background());
         switch (options.finderShape()) {
             case SQUARE -> {

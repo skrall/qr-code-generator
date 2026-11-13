@@ -16,7 +16,8 @@ import org.skrall.qrcode.model.QrStyle;
  * @param size            the output image's side in pixels
  * @param margin          the quiet zone in modules
  * @param errorCorrection the redundancy level
- * @param foreground      the data modules' colour
+ * @param foreground      the data modules' colour when there is no gradient
+ * @param gradient        the modules' gradient, and the eyes' when it says so, or {@code null}
  * @param background      the background and the eyes' inner gap
  * @param backgroundImage the decoded image behind the code, or {@code null} for none
  * @param moduleShape     the shape of a data module
@@ -30,6 +31,7 @@ public record RenderOptions(
         int margin,
         ErrorCorrection errorCorrection,
         Color foreground,
+        Gradient gradient,
         Color background,
         BackgroundImage backgroundImage,
         ModuleShape moduleShape,
@@ -47,6 +49,7 @@ public record RenderOptions(
         Color foreground = parse(source.foreground(), Color.BLACK);
         Color background = parse(source.background(), Color.WHITE);
         Color finderColor = parse(source.finderColor(), foreground);
+        Gradient gradient = Gradient.from(source.gradient(), background);
         FinderShape finderShape =
                 source.finderShape() == null ? FinderShape.SQUARE : source.finderShape();
         FinderArtworkImage finderArtwork = finderShape == FinderShape.CUSTOM
@@ -56,20 +59,28 @@ public record RenderOptions(
             finderShape = FinderShape.SQUARE;
         }
 
-        // Everything dark drawn over the image: the modules, the eyes, and the artwork's pixels.
+        // Everything drawn over the image: the modules, the eyes, and the artwork's pixels. A
+        // gradient replaces the foreground; its two stops bound every colour along it.
         DoubleSummaryStatistics inks = finderArtwork == null
                 ? new DoubleSummaryStatistics()
                 : Images.luminances(finderArtwork.image());
-        inks.accept(Images.luminance(foreground));
-        inks.accept(Images.luminance(finderColor));
+        Color moduleInk = gradient == null ? foreground : gradient.start();
+        inks.accept(Images.luminance(moduleInk));
+        if (gradient != null) {
+            inks.accept(Images.luminance(gradient.end()));
+        }
+        if (gradient == null || !gradient.finders() || finderArtwork != null) {
+            inks.accept(Images.luminance(finderColor));
+        }
         BackgroundImage backgroundImage = BackgroundImage.decode(
-                source.backgroundImage(), foreground, background, inks, size);
+                source.backgroundImage(), moduleInk, background, inks, size);
 
         return new RenderOptions(
                 size,
                 clamp(source.margin(), 0, 16, DEFAULT_MARGIN),
                 source.errorCorrection() == null ? ErrorCorrection.MEDIUM : source.errorCorrection(),
                 foreground,
+                gradient,
                 background,
                 backgroundImage,
                 source.moduleShape() == null ? ModuleShape.SQUARE : source.moduleShape(),
@@ -95,6 +106,11 @@ public record RenderOptions(
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    /** Whether the eyes are filled with the gradient rather than {@link #finderColor()}. */
+    public boolean gradientFinders() {
+        return gradient != null && gradient.finders() && finderShape != FinderShape.CUSTOM;
     }
 
     /** {@code #rrggbb}, which is also the form the SVG renderer writes. */
