@@ -57,6 +57,32 @@ public class ShortLinkService {
     }
 
     /**
+     * Changes the destination and expiry of a live link, keeping its code.
+     *
+     * <p>This is what makes a printed code reusable: the short URL stays the same, so a poster
+     * can be repointed without being reprinted. Deleted links are not editable. An expired link
+     * can be revived by giving it a future expiry or by clearing it.
+     *
+     * @return the updated link, or empty when no live link has that code
+     */
+    @Transactional
+    public Optional<ShortLink> update(String code, String url, Instant expiresAt) {
+        Optional<ShortLink> found = repository.findByCode(code).filter(link -> !link.isDeleted());
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+
+        String target = targetUrl(url);
+        Instant now = Instant.now();
+        if (expiresAt != null && !expiresAt.isAfter(now)) {
+            throw new InvalidLinkException("expiresAt must be in the future");
+        }
+
+        found.get().update(target, expiresAt);
+        return found;
+    }
+
+    /**
      * Looks a code up for the redirect endpoint, counting the hit when the link is usable.
      *
      * <p>Deleted and expired links are still found so the caller can tell {@code 410} from

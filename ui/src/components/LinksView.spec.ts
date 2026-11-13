@@ -122,6 +122,62 @@ describe('LinksView', () => {
     expect(container.textContent).toContain('/r/abc123XYZ')
   })
 
+  test('edits a destination without changing the code and reloads the list', async () => {
+    const updated = link({ targetUrl: 'https://example.com/two' })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(page([link()])))
+      .mockResolvedValueOnce(response(updated))
+      .mockResolvedValueOnce(response(page([updated])))
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount()
+    await flush()
+
+    button(container, 'Edit').click()
+    await nextTick()
+
+    const target = container.querySelector('#edit-link-target')
+    if (!(target instanceof HTMLInputElement)) {
+      throw new Error('No edit destination field')
+    }
+    expect(target.value).toBe('https://example.com/one')
+    target.value = 'example.com/two'
+    target.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+
+    button(container, 'Save changes').click()
+    await flush()
+
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit]
+    expect(url).toBe('/api/links/abc123XYZ')
+    expect(init.method).toBe('PUT')
+    expect(JSON.parse(String(init.body))).toEqual({ url: 'https://example.com/two' })
+    expect(container.querySelector('#edit-link-target')).toBeNull()
+    expect(container.textContent).toContain('https://example.com/two')
+  })
+
+  test('refuses an expiry that is already past', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response(page([link()])))
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount()
+    await flush()
+
+    button(container, 'Edit').click()
+    await nextTick()
+
+    const expiry = container.querySelector('#edit-link-expiry')
+    if (!(expiry instanceof HTMLInputElement)) {
+      throw new Error('No edit expiry field')
+    }
+    expiry.value = '2000-01-01T00:00'
+    expiry.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+
+    expect(button(container, 'Save changes').disabled).toBe(true)
+    expect(container.querySelector('.edit-dialog .error-text')?.textContent).toContain('already past')
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
   test('deletes only on the second click and reloads the list', async () => {
     const fetchMock = vi
       .fn()

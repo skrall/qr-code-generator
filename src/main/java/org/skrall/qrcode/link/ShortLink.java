@@ -55,6 +55,17 @@ public class ShortLink {
         this.expiresAt = expiresAt;
     }
 
+    /**
+     * Repoints the link without changing its code.
+     *
+     * <p>The code is what a printed QR image carries, so editing has to leave it alone: the
+     * whole point is to move an existing code to a new destination.
+     */
+    public void update(String targetUrl, Instant expiresAt) {
+        this.targetUrl = targetUrl;
+        this.expiresAt = expiresAt;
+    }
+
     /** Counts a scan. The caller decides whether the link is still usable. */
     public void recordHit(Instant at) {
         hitCount++;

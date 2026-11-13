@@ -39,6 +39,8 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - `data/` holds the H2 database and is ignored. Delete it to start with an empty link table.
 - A code that was deleted or has expired answers `410 Gone`, not `404`. Keep the soft delete:
   a printed code that stops working is not the same as an address that never existed.
+- Editing a link changes its destination and expiry but never its code. The code is what a
+  printed QR image carries, so replacing it would defeat the point of editing.
 
 ## UI
 
