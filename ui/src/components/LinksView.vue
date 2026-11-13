@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { deleteLink, listLinks, type ShortLink } from '../api/client'
+import { deleteLink, listLinks, updateLink, type ShortLink } from '../api/client'
 import { copyText } from '../clipboard'
-import { formatDate } from '../format'
+import { formatDate, toDateTimeInput } from '../format'
+import { normalizeUrl } from '../qr/types'
 
-/** The stored links, with a debounced search and a two-step delete. */
+/** The stored links, with a debounced search, an edit dialog and a two-step delete. */
 const PAGE_SIZE = 25
 
 const query = ref('')
@@ -16,6 +17,19 @@ const error = ref('')
 const pendingDelete = ref<string | null>(null)
 const deleting = ref<string | null>(null)
 const copiedCode = ref<string | null>(null)
+
+const editing = ref<ShortLink | null>(null)
+const editTarget = ref('')
+const editExpiry = ref('')
+const editError = ref('')
+const saving = ref(false)
+
+const editExpiryIsFuture = computed(() => {
+  if (!editExpiry.value) {
+    return true
+  }
+  return new Date(editExpiry.value).getTime() > Date.now()
+})
 
 let controller: AbortController | null = null
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -92,6 +106,43 @@ async function copy(link: ShortLink): Promise<void> {
   }
 }
 
+function startEdit(link: ShortLink): void {
+  editing.value = link
+  editTarget.value = link.targetUrl
+  editExpiry.value = toDateTimeInput(link.expiresAt)
+  editError.value = ''
+}
+
+function cancelEdit(): void {
+  if (saving.value) {
+    return
+  }
+  editing.value = null
+  editError.value = ''
+}
+
+async function saveEdit(): Promise<void> {
+  const link = editing.value
+  if (!link || saving.value || !editTarget.value.trim() || !editExpiryIsFuture.value) {
+    return
+  }
+
+  saving.value = true
+  editError.value = ''
+  try {
+    await updateLink(link.code, {
+      url: normalizeUrl(editTarget.value),
+      expiresAt: editExpiry.value ? new Date(editExpiry.value).toISOString() : null,
+    })
+    editing.value = null
+    await load()
+  } catch (cause) {
+    editError.value = cause instanceof Error ? cause.message : 'The link could not be updated.'
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(() => void load())
 onUnmounted(() => {
   clearTimeout(timer)
@@ -156,6 +207,7 @@ onUnmounted(() => {
             <td class="numeric">{{ link.hitCount }}</td>
             <td>{{ formatDate(link.lastHitAt) }}</td>
             <td class="cell-actions">
+              <button type="button" @click="startEdit(link)">Edit</button>
               <button
                 type="button"
                 class="danger"
@@ -174,6 +226,60 @@ onUnmounted(() => {
       <button type="button" :disabled="page === 0" @click="go(-1)">Previous</button>
       <span>Page {{ page + 1 }} of {{ pageCount }} · {{ total }} {{ total === 1 ? 'link' : 'links' }}</span>
       <button type="button" :disabled="page + 1 >= pageCount" @click="go(1)">Next</button>
+    </div>
+
+    <div v-if="editing" class="edit-overlay" @click.self="cancelEdit">
+      <form
+        class="card edit-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-link-title"
+        @submit.prevent="saveEdit"
+        @keydown.esc="cancelEdit"
+      >
+        <h2 id="edit-link-title">Edit short link</h2>
+        <p class="field-help">
+          <code>{{ editing.shortUrl }}</code> keeps its code, so already-printed QR images start
+          pointing at the destination below.
+        </p>
+
+        <div class="field">
+          <label class="field-label" for="edit-link-target">
+            Destination
+            <span class="required" aria-hidden="true">*</span>
+          </label>
+          <input
+            id="edit-link-target"
+            v-model="editTarget"
+            type="text"
+            inputmode="url"
+            spellcheck="false"
+            autocomplete="url"
+          />
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="edit-link-expiry">Expires at</label>
+          <input id="edit-link-expiry" v-model="editExpiry" type="datetime-local" />
+          <span v-if="editExpiry && !editExpiryIsFuture" class="field-help error-text">
+            That time is already past. Pick a future time or leave it empty.
+          </span>
+          <span v-else class="field-help">Leave empty for a link that never expires.</span>
+        </div>
+
+        <p v-if="editError" class="error" role="alert">{{ editError }}</p>
+
+        <div class="button-row">
+          <button
+            type="submit"
+            class="primary"
+            :disabled="saving || !editTarget.trim() || !editExpiryIsFuture"
+          >
+            {{ saving ? 'Saving…' : 'Save changes' }}
+          </button>
+          <button type="button" :disabled="saving" @click="cancelEdit">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 </template>

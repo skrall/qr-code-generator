@@ -53,7 +53,7 @@ export interface LinkPage {
   size: number
 }
 
-export interface CreateLinkInput {
+export interface LinkInput {
   url: string
   /** ISO timestamp, or null for a link that never expires. */
   expiresAt: string | null
@@ -121,9 +121,33 @@ export async function readLogoFile(file: File): Promise<QrLogo> {
 }
 
 /** Stores a destination and returns the short link that redirects to it. */
-export async function createLink(input: CreateLinkInput, signal?: AbortSignal): Promise<ShortLink> {
+export async function createLink(input: LinkInput, signal?: AbortSignal): Promise<ShortLink> {
   const response = await fetch('/api/links', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as ShortLink
+}
+
+/**
+ * Repoints a link at a new destination without changing its code.
+ *
+ * <p>The short URL is what an already-printed QR code carries, so editing keeps it and only
+ * changes where it redirects.
+ */
+export async function updateLink(
+  code: string,
+  input: LinkInput,
+  signal?: AbortSignal,
+): Promise<ShortLink> {
+  const response = await fetch(`/api/links/${encodeURIComponent(code)}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
     signal,

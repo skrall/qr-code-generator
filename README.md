@@ -188,8 +188,12 @@ curl -X POST http://localhost:8080/api/links \
 
 `expiresAt` is optional; omit it for a link that never expires. Only absolute `http` and `https`
 destinations are accepted, and credentials in the URL are rejected. `GET /api/links?q=…&page=0&size=25`
-lists links newest first, matching the destination or the code. `DELETE /api/links/{code}` soft
-deletes one, after which its code answers `410 Gone` rather than `404`.
+lists links newest first, matching the destination or the code.
+
+`PUT /api/links/{code}` changes the destination and expiry without changing the code, so a code
+that has already been printed can be repointed at a new destination. An expired link can be
+revived by giving it a future expiry or by clearing it. `DELETE /api/links/{code}` soft deletes
+one, after which its code answers `410 Gone` rather than `404`.
 
 `GET /r/{code}` is the public redirect. It answers `302 Found` with `Cache-Control: no-store`, so
 every scan reaches the server and the hit count stays honest. An unknown code is `404`; an expired
@@ -216,7 +220,7 @@ Flyway creates the schema at startup and Hibernate validates its mapping against
 
 | Path                | Purpose                        |
 | ------------------- | ------------------------------ |
-| `/api/links`        | Create, list and delete short links |
+| `/api/links`        | Create, list, edit and delete short links |
 | `/r/{code}`         | Redirect for a short link      |
 | `/actuator/health`  | Liveness and readiness         |
 | `/v3/api-docs`      | The OpenAPI document           |

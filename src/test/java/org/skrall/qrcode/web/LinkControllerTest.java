@@ -6,12 +6,14 @@ import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.skrall.qrcode.link.ShortLinkRepository;
@@ -81,6 +83,79 @@ class LinkControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(1))
                 .andExpect(jsonPath("$.items[0].code").value(code));
+    }
+
+    @Test
+    void editsADestinationWithoutChangingTheCode() throws Exception {
+        String code = create("https://example.com/old");
+
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com/new"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.targetUrl").value("https://example.com/new"));
+
+        mockMvc.perform(get("/r/{code}", code))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://example.com/new"));
+    }
+
+    @Test
+    void anExpiredLinkCanBeRevivedByEditingItsExpiry() throws Exception {
+        String code = create("https://example.com");
+        var link = repository.findByCode(code).orElseThrow();
+        link.update(link.getTargetUrl(), Instant.now().minusSeconds(60));
+        repository.save(link);
+
+        mockMvc.perform(get("/r/{code}", code))
+                .andExpect(status().isGone());
+
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com","expiresAt":"2999-01-01T00:00:00Z"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expiresAt").isNotEmpty());
+
+        mockMvc.perform(get("/r/{code}", code))
+                .andExpect(status().isFound());
+    }
+
+    @Test
+    void editingReportsAMissingOrDeletedLink() throws Exception {
+        mockMvc.perform(put("/api/links/missing")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com"}"""))
+                .andExpect(status().isNotFound());
+
+        String code = create("https://example.com");
+        mockMvc.perform(delete("/api/links/{code}", code))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com/new"}"""))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void editingRejectsANonHttpDestination() throws Exception {
+        String code = create("https://example.com");
+
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"javascript:alert(1)"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("http or https")));
+
+        mockMvc.perform(get("/r/{code}", code))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://example.com"));
     }
 
     @Test
