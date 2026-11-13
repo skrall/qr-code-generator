@@ -57,6 +57,38 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
         <!--
+            Short links outlive a restart, so they need a database rather than a map. H2 is the
+            default because it is a single file and needs no service; Postgres is a runtime
+            dependency for deployments that have one.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <!--
+            Flyway owns the schema. `ddl-auto: validate` then catches a mapping that has drifted
+            from the migrations, rather than silently altering a table that holds user data.
+            Spring Boot 4 keeps the Flyway auto-configuration in its own starter.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!--
             Publishes the JSON API at /v3/api-docs. The -api starter rather than -ui: the
             Swagger UI webjar is not needed to describe the API, and the document is enough
             to generate the UI's types.

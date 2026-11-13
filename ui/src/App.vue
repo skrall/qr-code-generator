@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
-import { renderQrCode, type QrFormat, type QrStyle } from './api/client'
+import { renderQrCode, type QrFormat, type QrStyle, type ShortLink } from './api/client'
 import ContentForm from './components/ContentForm.vue'
+import LinksView from './components/LinksView.vue'
 import LogoPanel from './components/LogoPanel.vue'
 import QrPreview from './components/QrPreview.vue'
+import ShortLinkForm from './components/ShortLinkForm.vue'
 import StylePanel from './components/StylePanel.vue'
 import type { PreviewState } from './preview'
 import { findQrType, initialValues, QR_TYPES, type QrTypeId } from './qr/types'
+
+const view = ref<'generator' | 'links'>('generator')
 
 const typeId = ref<QrTypeId>('url')
 const activeType = computed(() => findQrType(typeId.value))
@@ -29,11 +33,51 @@ const style = reactive<QrStyle>({
   logo: null,
 })
 
-const payload = computed(() => activeType.value.build(model.value))
+/**
+ * The short link's payload comes from the server, not from a builder, so it is held here. Until
+ * the link is created the form supplies a draft of the destination, which keeps the preview
+ * responsive while the user types.
+ */
+const shortUrl = ref('')
+const draftUrl = ref('')
+
+const payload = computed(() => {
+  if (typeId.value === 'shortlink') {
+    return shortUrl.value || draftUrl.value
+  }
+  return activeType.value.build(model.value)
+})
 const missing = computed(() =>
   activeType.value.fields.filter((field) => field.required && !(model.value[field.key] ?? '').trim()),
 )
-const canRender = computed(() => missing.value.length === 0 && payload.value.trim().length > 0)
+const canRender = computed(() => {
+  if (typeId.value === 'shortlink') {
+    return shortUrl.value.length > 0 || draftUrl.value.length > 0
+  }
+  return missing.value.length === 0 && payload.value.trim().length > 0
+})
+
+/** True while the preview shows the destination rather than the stored short URL. */
+const isDraft = computed(
+  () => typeId.value === 'shortlink' && shortUrl.value.length === 0 && draftUrl.value.length > 0,
+)
+
+watch(typeId, () => {
+  shortUrl.value = ''
+  draftUrl.value = ''
+})
+
+function linkCreated(link: ShortLink): void {
+  shortUrl.value = link.shortUrl
+}
+
+function linkCleared(): void {
+  shortUrl.value = ''
+}
+
+function linkDraft(url: string): void {
+  draftUrl.value = url
+}
 
 const previewUrl = ref('')
 const state = ref<PreviewState>('idle')
@@ -97,7 +141,7 @@ watch([payload, style], schedule, { deep: true, immediate: true })
 const downloading = ref<QrFormat | null>(null)
 
 async function download(format: QrFormat): Promise<void> {
-  if (!canRender.value || downloading.value) {
+  if (!canRender.value || isDraft.value || downloading.value) {
     return
   }
   downloading.value = format
@@ -140,10 +184,32 @@ onUnmounted(() => {
         <h1>QR Code Generator</h1>
         <p>Styled codes with rounded modules, shaped corner patterns and your own logo.</p>
       </div>
-      <a class="api-link" href="/v3/api-docs" target="_blank" rel="noreferrer">OpenAPI</a>
+      <div class="header-actions">
+        <nav class="view-nav" aria-label="View">
+          <button
+            type="button"
+            :class="{ active: view === 'generator' }"
+            :aria-current="view === 'generator' ? 'page' : undefined"
+            @click="view = 'generator'"
+          >
+            Generator
+          </button>
+          <button
+            type="button"
+            :class="{ active: view === 'links' }"
+            :aria-current="view === 'links' ? 'page' : undefined"
+            @click="view = 'links'"
+          >
+            Links
+          </button>
+        </nav>
+        <a class="api-link" href="/v3/api-docs" target="_blank" rel="noreferrer">OpenAPI</a>
+      </div>
     </header>
 
-    <main class="workspace">
+    <!-- v-show rather than v-if: the generator keeps its short link form state when the links
+         view is opened, so a created link and the preview do not disagree on return. -->
+    <main v-show="view === 'generator'" class="workspace">
       <section class="column">
         <div class="card">
           <h2>Content</h2>
@@ -161,7 +227,15 @@ onUnmounted(() => {
             </button>
           </div>
           <p class="hint">{{ activeType.hint }}</p>
-          <ContentForm :type="activeType" :model="model" />
+          <!-- The short link type has no fields of its own: its payload is the URL the server
+               returns, so the create step lives in its own component. -->
+          <ShortLinkForm
+            v-if="typeId === 'shortlink'"
+            @created="linkCreated"
+            @cleared="linkCleared"
+            @draft="linkDraft"
+          />
+          <ContentForm v-else :type="activeType" :model="model" />
         </div>
 
         <div class="card">
@@ -188,6 +262,13 @@ onUnmounted(() => {
             :state="state"
             :error="error"
             :payload="payload"
+            :draft="isDraft"
+            :downloadable="!isDraft"
+            :placeholder="
+              typeId === 'shortlink'
+                ? 'Enter a destination to see a draft, then Create link to encode the short URL.'
+                : 'Fill in the required fields and the code appears here.'
+            "
             @download="download"
           />
 
@@ -201,6 +282,10 @@ onUnmounted(() => {
           </p>
         </div>
       </aside>
+    </main>
+
+    <main v-if="view === 'links'" class="workspace single">
+      <LinksView />
     </main>
   </div>
 </template>

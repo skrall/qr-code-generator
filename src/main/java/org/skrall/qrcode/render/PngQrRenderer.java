@@ -5,6 +5,7 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
@@ -101,7 +102,33 @@ public class PngQrRenderer {
                 double inset = (scale - diameter) / 2;
                 graphics.fill(new Ellipse2D.Double(x + inset, y + inset, diameter, diameter));
             }
+            case STAR -> graphics.fill(star(x, y, scale));
         }
+    }
+
+    /**
+     * A four-point star whose tips reach the middle of each cell edge.
+     *
+     * <p>The waist is deliberately wide: a thin sparkle loses too much ink at the module sizes a
+     * dense code produces, and the centre has to stay solid for a reader sampling it.
+     */
+    private static Path2D star(double x, double y, double scale) {
+        double centreX = x + scale / 2;
+        double centreY = y + scale / 2;
+        double outer = scale / 2;
+        double inner = scale * 0.36 / Math.sqrt(2);
+
+        Path2D.Double path = new Path2D.Double();
+        path.moveTo(centreX, centreY - outer);
+        path.lineTo(centreX + inner, centreY - inner);
+        path.lineTo(centreX + outer, centreY);
+        path.lineTo(centreX + inner, centreY + inner);
+        path.lineTo(centreX, centreY + outer);
+        path.lineTo(centreX - inner, centreY + inner);
+        path.lineTo(centreX - outer, centreY);
+        path.lineTo(centreX - inner, centreY - inner);
+        path.closePath();
+        return path;
     }
 
     private static void drawEye(Graphics2D graphics, double x, double y, double scale, RenderOptions options) {
@@ -133,11 +160,55 @@ public class PngQrRenderer {
                 graphics.setColor(foreground);
                 graphics.fill(new Ellipse2D.Double(x + 2 * scale, y + 2 * scale, 3 * scale, 3 * scale));
             }
+            case LEAF -> {
+                graphics.setColor(foreground);
+                graphics.fill(leaf(x, y, side, 2.4 * scale));
+                graphics.setColor(background);
+                graphics.fill(leaf(x + scale, y + scale, side - 2 * scale, 1.6 * scale));
+                graphics.setColor(foreground);
+                graphics.fill(leaf(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale));
+            }
+            case DIAMOND -> {
+                graphics.setColor(foreground);
+                graphics.fill(diamond(x, y, side, 0));
+                graphics.setColor(background);
+                graphics.fill(diamond(x, y, side, scale));
+                graphics.setColor(foreground);
+                graphics.fill(diamond(x, y, side, 2 * scale));
+            }
         }
     }
 
     private static RoundRectangle2D rounded(double x, double y, double side, double radius) {
         return new RoundRectangle2D.Double(x, y, side, side, radius * 2, radius * 2);
+    }
+
+    /** A square with its top-left and bottom-right corners rounded. */
+    private static Path2D leaf(double x, double y, double side, double radius) {
+        double r = Math.min(radius, side / 2);
+        Path2D.Double path = new Path2D.Double();
+        path.moveTo(x + r, y);
+        path.lineTo(x + side, y);
+        path.lineTo(x + side, y + side - r);
+        path.quadTo(x + side, y + side, x + side - r, y + side);
+        path.lineTo(x, y + side);
+        path.lineTo(x, y + r);
+        path.quadTo(x, y, x + r, y);
+        path.closePath();
+        return path;
+    }
+
+    /** A square turned a quarter turn, inset from the same bounding box as the other eyes. */
+    private static Path2D diamond(double x, double y, double side, double inset) {
+        double centreX = x + side / 2;
+        double centreY = y + side / 2;
+        Path2D.Double path = new Path2D.Double();
+        path.moveTo(centreX, y + inset);
+        path.lineTo(x + side - inset, centreY);
+        path.lineTo(centreX, y + side - inset);
+        path.lineTo(x + inset, centreY);
+        path.closePath();
+        return path;
     }
 
     private static void drawLogo(Graphics2D graphics, RenderOptions options) {

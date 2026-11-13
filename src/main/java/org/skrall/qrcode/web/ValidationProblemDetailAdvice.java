@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.skrall.qrcode.LogoException;
 import org.skrall.qrcode.QrEncodingException;
+import org.skrall.qrcode.link.InvalidLinkException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -58,6 +59,17 @@ public class ValidationProblemDetailAdvice {
 
     @ExceptionHandler({ LogoException.class, QrEncodingException.class })
     public ProblemDetail onUnrenderable(RuntimeException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+        problem.setTitle(HttpStatus.BAD_REQUEST.getReasonPhrase());
+        return problem;
+    }
+
+    /**
+     * A destination that is not an absolute http(s) URL, or an expiry that is already past.
+     * The message says which, and is phrased for the person who typed it.
+     */
+    @ExceptionHandler(InvalidLinkException.class)
+    public ProblemDetail onInvalidLink(InvalidLinkException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
         problem.setTitle(HttpStatus.BAD_REQUEST.getReasonPhrase());
         return problem;

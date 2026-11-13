@@ -4,13 +4,15 @@ A QR code generator that renders the code itself, so the modules, the three corn
 an embedded logo can all be shaped. It is a Spring Boot service with a Vue UI, and both are served
 by the same process.
 
-- **Rounded modules** — squares, rounded squares or dots.
-- **Shaped corner patterns** — square, rounded or circular finder patterns, drawn separately so
-  the outer ring, the gap and the centre stay concentric.
+- **Shaped modules** — squares, rounded squares, dots or four-point stars.
+- **Shaped corner patterns** — square, rounded, circular, leaf or diamond finder patterns,
+  drawn separately so the outer ring, the gap and the centre stay concentric.
 - **Logos** — drop in a PNG, JPEG or GIF and it is centred on a light plate. The plate's size,
   padding, roundness and colour are adjustable.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
   bitcoin.
+- **Short links** — store a destination and encode a code that redirects to it, with an optional
+  expiry, a searchable list and hit counts.
 - **PNG and SVG** — PNG for anything that needs a bitmap, SVG for print and for embedding the
   original logo without resampling.
 - **Scannable** — the tests decode the rendered output with ZXing, including a rounded code with
@@ -31,6 +33,14 @@ is on your `PATH`. The build targets Java 25 bytecode either way, so a newer JDK
 
 Then open <http://localhost:8080>. The same process serves the UI, the API and the OpenAPI
 document at `/v3/api-docs`.
+
+Short links live in `./data/qr-code-generator.mv.db`, created on first use. A link is only useful
+if a phone can reach it, so when the service is not running on the scanner's own machine, give it
+an address the phone can resolve:
+
+```bash
+APP_PUBLIC_BASE_URL=http://192.168.1.20:8080 SERVER_ADDRESS=0.0.0.0 ./mvnw spring-boot:run
+```
 
 To work on the UI with hot reload, run the backend and the Vite dev server side by side. Vite
 proxies `/api` and `/v3` to the backend, so the browser still sees one origin:
@@ -99,8 +109,8 @@ black-on-white code.
 | `errorCorrection` | `LOW`, `MEDIUM`, `QUARTILE`, `HIGH` | `MEDIUM` |
 | `foreground`      | `#rrggbb`                     | `#000000`    |
 | `background`      | `#rrggbb`                     | `#ffffff`    |
-| `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`   | `SQUARE`     |
-| `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE` | `SQUARE`     |
+| `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR` | `SQUARE` |
+| `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND` | `SQUARE` |
 | `finderColor`     | `#rrggbb`                     | `foreground` |
 
 ### Logo
@@ -154,10 +164,60 @@ array naming each field:
 
 A payload too long for the chosen error-correction level is a 400 with a detail saying so.
 
+### Short links
+
+`POST /api/links` stores a destination and returns the code that redirects to it.
+
+```bash
+curl -X POST http://localhost:8080/api/links \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com/page","expiresAt":"2026-12-01T00:00:00Z"}'
+```
+
+```json
+{
+  "code": "aB3dE5fG7",
+  "shortUrl": "http://localhost:8080/r/aB3dE5fG7",
+  "targetUrl": "https://example.com/page",
+  "createdAt": "2026-11-11T20:00:00Z",
+  "expiresAt": "2026-12-01T00:00:00Z",
+  "hitCount": 0,
+  "lastHitAt": null
+}
+```
+
+`expiresAt` is optional; omit it for a link that never expires. Only absolute `http` and `https`
+destinations are accepted, and credentials in the URL are rejected. `GET /api/links?q=…&page=0&size=25`
+lists links newest first, matching the destination or the code. `DELETE /api/links/{code}` soft
+deletes one, after which its code answers `410 Gone` rather than `404`.
+
+`GET /r/{code}` is the public redirect. It answers `302 Found` with `Cache-Control: no-store`, so
+every scan reaches the server and the hit count stays honest. An unknown code is `404`; an expired
+or deleted one is `410`.
+
+The short URL is composed from `app.public-base-url`, which defaults to `http://localhost:8080`.
+Set `APP_PUBLIC_BASE_URL` to the address a scanner can reach — a LAN address, or the public name
+behind a reverse proxy — before generating codes.
+
+### Database
+
+Short links have to survive a restart, so they are stored in H2 by default: a single file under
+`./data`. A deployment with PostgreSQL only has to point the datasource at it:
+
+```bash
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/qr
+SPRING_DATASOURCE_USERNAME=qr
+SPRING_DATASOURCE_PASSWORD=secret
+```
+
+Flyway creates the schema at startup and Hibernate validates its mapping against it.
+
 ### Other endpoints
 
 | Path                | Purpose                        |
 | ------------------- | ------------------------------ |
+| `/api/links`        | Create, list and delete short links |
+| `/r/{code}`         | Redirect for a short link      |
 | `/actuator/health`  | Liveness and readiness         |
 | `/v3/api-docs`      | The OpenAPI document           |
 
@@ -171,12 +231,16 @@ src/main/java/org/skrall/qrcode/
 ├── model/          request DTOs and enums, with the validation constraints
 ├── service/        encoding: payload → ZXing BitMatrix
 ├── render/         matrix → PNG (Java2D) or SVG
-└── web/            the controller, the error advice and the format converter
+├── link/           short link entity, repository and redirect resolution
+└── web/            the controllers, the error advice and the format converter
+
+src/main/resources/db/migration/
+└── V1__short_link.sql   the schema Flyway applies
 
 ui/src/
 ├── qr/types.ts     the payload builders for every supported content type
 ├── api/client.ts   the typed API client and the logo file reader
-├── components/     content form, style panel, logo panel, preview
+├── components/     content form, style panel, logo panel, preview, short links
 └── App.vue         state, debounced preview and downloads
 ```
 
@@ -190,8 +254,8 @@ whole shapes afterwards, because a per-module shape cannot keep their three ring
 
 ## Notes
 
-- No database and no upload storage: the service is stateless, and a logo lives only in the
-  request that carries it.
+- No upload storage: a logo lives only in the request that carries it. Short links are the one
+  thing stored, in the database, because they have to outlive a restart.
 - The UI keeps each type's values separately, so switching from a vCard to a WiFi code and back
   does not discard what was typed.
 - The preview is debounced and cancels the previous request, so typing does not queue renders.

@@ -61,6 +61,21 @@ describe('StylePanel', () => {
     expect(buttonIn(container, 'Module shape', 'Dots').classList.contains('active')).toBe(true)
   })
 
+  test('offers the star module and leaf and diamond corner patterns', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    buttonIn(container, 'Module shape', 'Stars').click()
+    buttonIn(container, 'Corner pattern shape', 'Leaf').click()
+    await nextTick()
+    expect(style.moduleShape).toBe('STAR')
+    expect(style.finderShape).toBe('LEAF')
+
+    buttonIn(container, 'Corner pattern shape', 'Diamond').click()
+    await nextTick()
+    expect(style.finderShape).toBe('DIAMOND')
+  })
+
   test('a preset updates every colour and shape it owns', async () => {
     const style = reactive(freshStyle())
     const container = mount(style)

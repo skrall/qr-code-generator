@@ -9,6 +9,7 @@
 export type QrTypeId =
   | 'text'
   | 'url'
+  | 'shortlink'
   | 'email'
   | 'phone'
   | 'sms'
@@ -98,12 +99,20 @@ export function icalDate(value: string): string {
   return compact
 }
 
-function buildUrl(values: Values): string {
-  const url = read(values, 'url')
+/**
+ * Adds https:// when the value has no scheme, matching how a browser treats a bare host.
+ * The short link form uses the same rule so a typed `example.com` is stored as a real URL.
+ */
+export function normalizeUrl(raw: string): string {
+  const url = raw.trim()
   if (!url) {
     return ''
   }
   return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url) ? url : `https://${url}`
+}
+
+function buildUrl(values: Values): string {
+  return normalizeUrl(read(values, 'url'))
 }
 
 function buildEmail(values: Values): string {
@@ -282,6 +291,16 @@ export const QR_TYPES: readonly QrType[] = [
     ],
     defaults: {},
     build: buildUrl,
+  },
+  {
+    id: 'shortlink',
+    label: 'Short link',
+    hint: 'Stores the destination and encodes a link that redirects to it.',
+    // The payload is the URL the server returns, not something composed here, so this type has
+    // no fields of its own. ShortLinkForm owns the create step and App holds the result.
+    fields: [],
+    defaults: {},
+    build: () => '',
   },
   {
     id: 'email',

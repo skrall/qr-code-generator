@@ -9,5 +9,7 @@ public enum ModuleShape {
     /** Squares with softened corners. */
     ROUNDED,
     /** Circles with a small gap around them. */
-    DOTS
+    DOTS,
+    /** Four-point stars whose tips meet the edges of the module cell. */
+    STAR
 }
