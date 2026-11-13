@@ -49,6 +49,14 @@ public class PngQrRenderer {
             graphics.setColor(options.background());
             graphics.fillRect(0, 0, options.size(), options.size());
 
+            if (options.backgroundImage() != null) {
+                graphics.setRenderingHint(
+                        RenderingHints.KEY_INTERPOLATION,
+                        RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                graphics.drawImage(
+                        options.backgroundImage().image(), 0, 0, options.size(), options.size(), null);
+            }
+
             graphics.setColor(options.foreground());
             for (int row = 0; row < dimension; row++) {
                 for (int column = 0; column < dimension; column++) {

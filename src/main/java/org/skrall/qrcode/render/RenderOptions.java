@@ -1,6 +1,7 @@
 package org.skrall.qrcode.render;
 
 import java.awt.Color;
+import java.util.DoubleSummaryStatistics;
 import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.FinderShape;
 import org.skrall.qrcode.model.ModuleShape;
@@ -17,6 +18,7 @@ import org.skrall.qrcode.model.QrStyle;
  * @param errorCorrection the redundancy level
  * @param foreground      the data modules' colour
  * @param background      the background and the eyes' inner gap
+ * @param backgroundImage the decoded image behind the code, or {@code null} for none
  * @param moduleShape     the shape of a data module
  * @param finderShape     the shape of the three corner patterns
  * @param finderColor     the corner patterns' colour
@@ -29,6 +31,7 @@ public record RenderOptions(
         ErrorCorrection errorCorrection,
         Color foreground,
         Color background,
+        BackgroundImage backgroundImage,
         ModuleShape moduleShape,
         FinderShape finderShape,
         Color finderColor,
@@ -40,6 +43,7 @@ public record RenderOptions(
 
     public static RenderOptions from(QrStyle style, LogoImage logo) {
         QrStyle source = style == null ? QrStyle.EMPTY : style;
+        int size = clamp(source.size(), 128, 4096, DEFAULT_SIZE);
         Color foreground = parse(source.foreground(), Color.BLACK);
         Color background = parse(source.background(), Color.WHITE);
         Color finderColor = parse(source.finderColor(), foreground);
@@ -52,12 +56,22 @@ public record RenderOptions(
             finderShape = FinderShape.SQUARE;
         }
 
+        // Everything dark drawn over the image: the modules, the eyes, and the artwork's pixels.
+        DoubleSummaryStatistics inks = finderArtwork == null
+                ? new DoubleSummaryStatistics()
+                : Images.luminances(finderArtwork.image());
+        inks.accept(Images.luminance(foreground));
+        inks.accept(Images.luminance(finderColor));
+        BackgroundImage backgroundImage = BackgroundImage.decode(
+                source.backgroundImage(), foreground, background, inks, size);
+
         return new RenderOptions(
-                clamp(source.size(), 128, 4096, DEFAULT_SIZE),
+                size,
                 clamp(source.margin(), 0, 16, DEFAULT_MARGIN),
                 source.errorCorrection() == null ? ErrorCorrection.MEDIUM : source.errorCorrection(),
                 foreground,
                 background,
+                backgroundImage,
                 source.moduleShape() == null ? ModuleShape.SQUARE : source.moduleShape(),
                 finderShape,
                 finderColor,

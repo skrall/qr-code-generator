@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Pattern;
  * @param errorCorrection the redundancy level, default MEDIUM
  * @param foreground      module colour as {@code #rrggbb}, default black
  * @param background      background colour as {@code #rrggbb}, default white
+ * @param backgroundImage an optional image drawn behind the code, washed for contrast
  * @param moduleShape     the shape of a data module, default SQUARE
  * @param finderShape     the shape of the three corner patterns, default SQUARE
  * @param finderColor     the corner patterns' colour, default the foreground colour
@@ -37,6 +38,9 @@ public record QrStyle(
         @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "style.background must be a hex colour such as #ffffff")
         String background,
 
+        @Valid
+        QrBackgroundImage backgroundImage,
+
         ModuleShape moduleShape,
 
         FinderShape finderShape,
@@ -52,5 +56,5 @@ public record QrStyle(
 
     /** A style with every field absent, used to resolve defaults. */
     public static final QrStyle EMPTY =
-            new QrStyle(null, null, null, null, null, null, null, null, null, null);
+            new QrStyle(null, null, null, null, null, null, null, null, null, null, null);
 }

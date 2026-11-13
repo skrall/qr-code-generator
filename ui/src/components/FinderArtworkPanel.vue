@@ -47,7 +47,7 @@ function remove(): void {
 </script>
 
 <template>
-  <div class="logo-panel">
+  <div class="logo-panel finder-artwork-panel">
     <input
       ref="fileInput"
       class="visually-hidden"

@@ -31,6 +31,7 @@ function freshStyle(): QrStyle {
     errorCorrection: 'QUARTILE',
     foreground: '#111827',
     background: '#ffffff',
+    backgroundImage: null,
     moduleShape: 'ROUNDED',
     finderShape: 'ROUNDED',
     finderColor: '#3158c4',
@@ -104,14 +105,43 @@ describe('StylePanel', () => {
     const style = reactive(freshStyle())
     const container = mount(style)
 
-    expect(container.querySelector('input[type="file"]')).toBeNull()
+    expect(container.querySelector('.finder-artwork-panel input[type="file"]')).toBeNull()
 
     buttonIn(container, 'Corner pattern shape', 'Custom').click()
     await nextTick()
 
     expect(style.finderShape).toBe('CUSTOM')
-    expect(container.querySelector('input[type="file"]')).not.toBeNull()
+    expect(container.querySelector('.finder-artwork-panel input[type="file"]')).not.toBeNull()
     expect(container.textContent).toContain('Corner artwork')
+  })
+
+  test('offers a background image uploader', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    expect(container.querySelector('.background-panel input[type="file"]')).not.toBeNull()
+    expect(container.textContent).toContain('Background image')
+  })
+
+  test('removing a background image clears it from the style', async () => {
+    const style = reactive(freshStyle())
+    style.backgroundImage = { dataUrl: 'data:image/png;base64,AAAA' }
+    const container = mount(style)
+
+    const panel = container.querySelector('.background-panel')
+    if (!(panel instanceof HTMLElement)) {
+      throw new Error('No background panel')
+    }
+    const remove = [...panel.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Remove',
+    )
+    if (!(remove instanceof HTMLButtonElement)) {
+      throw new Error('No Remove button')
+    }
+    remove.click()
+    await nextTick()
+
+    expect(style.backgroundImage).toBeNull()
   })
 
   test('removing corner artwork clears it from the style', async () => {
