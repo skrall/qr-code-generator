@@ -10,10 +10,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.Map;
 import org.skrall.qrcode.QrEncodingException;
+import org.skrall.qrcode.check.ScanChecker;
 import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.QrCodeRequest;
 import org.skrall.qrcode.model.QrFormat;
 import org.skrall.qrcode.model.QrStyle;
+import org.skrall.qrcode.model.ScanCheckResponse;
 import org.skrall.qrcode.render.LogoImage;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.RenderOptions;
@@ -28,13 +30,42 @@ public class QrCodeService {
 
     private final PngQrRenderer pngRenderer;
     private final SvgQrRenderer svgRenderer;
+    private final ScanChecker scanChecker;
 
-    public QrCodeService(PngQrRenderer pngRenderer, SvgQrRenderer svgRenderer) {
+    public QrCodeService(
+            PngQrRenderer pngRenderer, SvgQrRenderer svgRenderer, ScanChecker scanChecker) {
         this.pngRenderer = pngRenderer;
         this.svgRenderer = svgRenderer;
+        this.scanChecker = scanChecker;
     }
 
     public byte[] render(QrCodeRequest request, QrFormat format) {
+        Prepared prepared = prepare(request);
+        return switch (format) {
+            case PNG -> pngRenderer.render(prepared.matrix(), prepared.options());
+            case SVG -> svgRenderer.render(prepared.matrix(), prepared.options());
+        };
+    }
+
+    /**
+     * Renders the code and reads it back.
+     *
+     * <p>The PNG renderer's pixels are what get read. The SVG has the same geometry, so the
+     * verdict holds for both formats.
+     */
+    public ScanCheckResponse check(QrCodeRequest request) {
+        Prepared prepared = prepare(request);
+        return scanChecker.check(
+                pngRenderer.draw(prepared.matrix(), prepared.options()),
+                request.data(),
+                prepared.matrix(),
+                prepared.options());
+    }
+
+    private record Prepared(BitMatrix matrix, RenderOptions options) {
+    }
+
+    private static Prepared prepare(QrCodeRequest request) {
         QrStyle style = request.style();
         LogoImage logo = LogoImage.decode(style == null ? null : style.logo());
         RenderOptions options = RenderOptions.from(style, logo);
@@ -43,11 +74,7 @@ public class QrCodeService {
             // Only now is the module size known, which is what the quiet zone is measured in.
             options.frame().requireQuietZone(matrix.getWidth(), options.size(), options.margin());
         }
-
-        return switch (format) {
-            case PNG -> pngRenderer.render(matrix, options);
-            case SVG -> svgRenderer.render(matrix, options);
-        };
+        return new Prepared(matrix, options);
     }
 
     /**

@@ -61,7 +61,7 @@ afterEach(() => {
 /** The payload of the most recent preview request, as the server would encode it. */
 function lastRendered(fetchMock: ReturnType<typeof vi.fn>): string | undefined {
   const call = fetchMock.mock.calls
-    .filter(([input]) => String(input).startsWith('/api/qr-codes'))
+    .filter(([input]) => String(input).startsWith('/api/qr-codes?'))
     .at(-1)
   return call ? (JSON.parse(String((call[1] as RequestInit).body)).data as string) : undefined
 }
@@ -73,7 +73,16 @@ describe('App with a short link', () => {
       if (url === '/api/links') {
         return json(stored, 201)
       }
-      if (url.startsWith('/api/qr-codes')) {
+      if (url === '/api/qr-codes/check') {
+        return json({
+          verdict: 'MARGINAL',
+          version: 3,
+          modules: 29,
+          trials: [],
+          hints: ['Widen the margin.'],
+        })
+      }
+      if (url.startsWith('/api/qr-codes?')) {
         return png()
       }
       throw new Error(`Unexpected request: ${url}`)
@@ -104,6 +113,9 @@ describe('App with a short link', () => {
       'blob:preview',
     )
     expect(host.querySelector('.notice')?.textContent).toContain('Draft preview')
+    // The check follows the render and reports on the same payload.
+    expect(host.querySelector('.scan-status')?.textContent).toContain('May not scan on every phone')
+    expect(host.querySelector('.scan-hints')?.textContent).toContain('Widen the margin.')
     expect(button(host, 'Download PNG').disabled).toBe(true)
     expect(button(host, 'Download SVG').disabled).toBe(true)
 

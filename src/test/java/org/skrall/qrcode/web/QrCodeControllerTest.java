@@ -24,6 +24,30 @@ class QrCodeControllerTest {
     private MockMvc mockMvc;
 
     @Test
+    void checksThatACodeScans() throws Exception {
+        mockMvc.perform(post("/api/qr-codes/check")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"https://example.com","style":{"size":256}}"""))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.verdict").value("PASS"))
+                .andExpect(jsonPath("$.version").value(2))
+                .andExpect(jsonPath("$.modules").value(25))
+                .andExpect(jsonPath("$.trials.length()").value(3))
+                .andExpect(jsonPath("$.hints").isEmpty());
+    }
+
+    @Test
+    void theCheckRejectsWhatTheRendererRejects() throws Exception {
+        mockMvc.perform(post("/api/qr-codes/check")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"","style":{"size":256}}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void rendersPngByDefault() throws Exception {
         MvcResult result = mockMvc.perform(post("/api/qr-codes")
                         .contentType(MediaType.APPLICATION_JSON)

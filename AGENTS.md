@@ -51,6 +51,20 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - Frame text is set in the bundled Inter (`src/main/resources/fonts`, OFL). Text it cannot draw is
   rejected, not drawn as boxes. Swapping the font changes which text is accepted.
 
+## Scan check
+
+- `ScanChecker` reads `PngQrRenderer.draw`'s pixels; there is no separate SVG check because the
+  geometry is shared. A renderer change that alters what is drawn changes the verdicts too.
+- The trials use the quick reader, no `TRY_HARDER`; that is what makes them discriminating.
+  `TRY_HARDER` only separates `FAIL` from `MARGINAL` on the as-rendered image.
+- The verdict thresholds (3 and 4 pixels per module, two 3×3 box blurs) were calibrated against
+  every module and corner shape, logos of 15–35% at each level, grey modules and thin margins.
+  `ScanCheckerTest` pins both sides of those boundaries; rerun a sweep before changing them.
+- `ALSO_INVERTED` only works through `MultiFormatReader`, not `QRCodeReader`.
+- Hints come from the style, not the reader, and are only sent when the verdict is not a pass.
+- The UI runs the check after the render succeeds, not beside it, so a rejected style is
+  reported once and the image is never held up by the check.
+
 ## Short links
 
 - Flyway owns the schema. Add a new `V{n}__*.sql` under `src/main/resources/db/migration` rather

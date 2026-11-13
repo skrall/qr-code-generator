@@ -29,6 +29,7 @@ import org.skrall.qrcode.FrameException;
 import org.skrall.qrcode.GradientException;
 import org.skrall.qrcode.LogoException;
 import org.skrall.qrcode.QrEncodingException;
+import org.skrall.qrcode.check.ScanChecker;
 import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.FinderShape;
 import org.skrall.qrcode.model.GradientType;
@@ -46,7 +47,7 @@ import org.skrall.qrcode.render.SvgQrRenderer;
 
 class QrCodeServiceTest {
 
-    private final QrCodeService service = new QrCodeService(new PngQrRenderer(), new SvgQrRenderer());
+    private final QrCodeService service = new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker());
 
     @Test
     void rendersPngAtTheRequestedSize() throws IOException {

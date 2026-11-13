@@ -38,6 +38,18 @@ public class PngQrRenderer {
     private static final double LIQUID_RADIUS = 0.4;
 
     public byte[] render(BitMatrix matrix, RenderOptions options) {
+        BufferedImage image = draw(matrix, options);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(image, "png", out);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Could not encode the rendered image as PNG.", e);
+        }
+        return out.toByteArray();
+    }
+
+    /** Draws the code into pixels: what {@link #render} encodes, and what the scan check reads. */
+    public BufferedImage draw(BitMatrix matrix, RenderOptions options) {
         int dimension = matrix.getWidth();
         double scale = (double) options.size() / (dimension + options.margin() * 2);
 
@@ -83,14 +95,7 @@ public class PngQrRenderer {
         } finally {
             graphics.dispose();
         }
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            ImageIO.write(image, "png", out);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Could not encode the rendered image as PNG.", e);
-        }
-        return out.toByteArray();
+        return image;
     }
 
     /** The card, its border and its text; the shapes come from {@link Frame}, as in the SVG. */
