@@ -34,14 +34,16 @@ const style = reactive<QrStyle>({
 })
 
 /**
- * The short link's payload comes from the server, not from a builder, so it is held here and
- * cleared whenever the type changes or the form is edited.
+ * The short link's payload comes from the server, not from a builder, so it is held here. Until
+ * the link is created the form supplies a draft of the destination, which keeps the preview
+ * responsive while the user types.
  */
 const shortUrl = ref('')
+const draftUrl = ref('')
 
 const payload = computed(() => {
   if (typeId.value === 'shortlink') {
-    return shortUrl.value
+    return shortUrl.value || draftUrl.value
   }
   return activeType.value.build(model.value)
 })
@@ -50,13 +52,19 @@ const missing = computed(() =>
 )
 const canRender = computed(() => {
   if (typeId.value === 'shortlink') {
-    return shortUrl.value.length > 0
+    return shortUrl.value.length > 0 || draftUrl.value.length > 0
   }
   return missing.value.length === 0 && payload.value.trim().length > 0
 })
 
+/** True while the preview shows the destination rather than the stored short URL. */
+const isDraft = computed(
+  () => typeId.value === 'shortlink' && shortUrl.value.length === 0 && draftUrl.value.length > 0,
+)
+
 watch(typeId, () => {
   shortUrl.value = ''
+  draftUrl.value = ''
 })
 
 function linkCreated(link: ShortLink): void {
@@ -65,6 +73,10 @@ function linkCreated(link: ShortLink): void {
 
 function linkCleared(): void {
   shortUrl.value = ''
+}
+
+function linkDraft(url: string): void {
+  draftUrl.value = url
 }
 
 const previewUrl = ref('')
@@ -129,7 +141,7 @@ watch([payload, style], schedule, { deep: true, immediate: true })
 const downloading = ref<QrFormat | null>(null)
 
 async function download(format: QrFormat): Promise<void> {
-  if (!canRender.value || downloading.value) {
+  if (!canRender.value || isDraft.value || downloading.value) {
     return
   }
   downloading.value = format
@@ -221,6 +233,7 @@ onUnmounted(() => {
             v-if="typeId === 'shortlink'"
             @created="linkCreated"
             @cleared="linkCleared"
+            @draft="linkDraft"
           />
           <ContentForm v-else :type="activeType" :model="model" />
         </div>
@@ -249,9 +262,11 @@ onUnmounted(() => {
             :state="state"
             :error="error"
             :payload="payload"
+            :draft="isDraft"
+            :downloadable="!isDraft"
             :placeholder="
               typeId === 'shortlink'
-                ? 'Create a link and the code appears here.'
+                ? 'Enter a destination to see a draft, then Create link to encode the short URL.'
                 : 'Fill in the required fields and the code appears here.'
             "
             @download="download"

@@ -3,18 +3,19 @@ import { computed, ref, watch } from 'vue'
 import { createLink, type ShortLink } from '../api/client'
 import { copyText } from '../clipboard'
 import { formatDate } from '../format'
+import { normalizeUrl } from '../qr/types'
 
 /**
  * Creates a stored short link and hands the resulting URL to the parent.
  *
- * <p>This is deliberately an explicit action rather than part of the debounced preview: every
- * keystroke would otherwise store another destination. The parent renders the QR from
- * `shortUrl`, and any edit here clears it, so the preview never shows a code that no longer
- * matches the form.
+ * <p>The preview gets a draft of the destination while the user types, so it is not blank until
+ * the link exists. Creating is still an explicit action: only the draft is shown before then,
+ * and the parent disables downloads until the real short URL is available.
  */
 const emit = defineEmits<{
   created: [link: ShortLink]
   cleared: []
+  draft: [url: string]
 }>()
 
 type Expiry = 'never' | '1d' | '7d' | '30d' | 'custom'
@@ -64,7 +65,10 @@ async function create(): Promise<void> {
   copied.value = false
 
   try {
-    const link = await createLink({ url: destination.value.trim(), expiresAt: expiresAt() })
+    const link = await createLink({
+      url: normalizeUrl(destination.value),
+      expiresAt: expiresAt(),
+    })
     created.value = link
     emit('created', link)
   } catch (cause) {
@@ -80,9 +84,21 @@ async function copy(): Promise<void> {
   }
 }
 
-// A change after creation makes the shown link stale, so drop it rather than let the preview
-// describe a destination the form no longer names.
-watch([destination, expiry, customExpiry], () => {
+// The destination is the draft the parent renders before a link exists. A change after creation
+// makes the shown link stale, so drop it rather than let the preview describe a destination the
+// form no longer names.
+watch(destination, () => {
+  if (created.value) {
+    created.value = null
+    copied.value = false
+    emit('cleared')
+  }
+  emit('draft', normalizeUrl(destination.value))
+})
+
+// Expiry does not change the draft payload, but it does invalidate a link that was created with
+// the previous setting.
+watch([expiry, customExpiry], () => {
   if (!created.value) {
     return
   }
@@ -93,7 +109,7 @@ watch([destination, expiry, customExpiry], () => {
 </script>
 
 <template>
-  <div class="short-link-form">
+  <form class="short-link-form" @submit.prevent="create">
     <div class="field">
       <label class="field-label" for="shortlink-destination">
         Destination
@@ -102,7 +118,9 @@ watch([destination, expiry, customExpiry], () => {
       <input
         id="shortlink-destination"
         v-model="destination"
-        type="url"
+        type="text"
+        inputmode="url"
+        spellcheck="false"
         placeholder="example.com/page"
         autocomplete="url"
       />
@@ -129,10 +147,15 @@ watch([destination, expiry, customExpiry], () => {
     </div>
 
     <div class="button-row">
-      <button type="button" class="primary" :disabled="!canCreate" @click="create">
+      <button type="submit" class="primary" :disabled="!canCreate">
         {{ busy ? 'Creating…' : 'Create link' }}
       </button>
     </div>
+
+    <p v-if="!created" class="field-help">
+      The preview shows the destination as a draft. Create the link to encode the short URL;
+      pressing Enter in the destination field does the same thing.
+    </p>
 
     <p v-if="error" class="error" role="alert">{{ error }}</p>
 
@@ -154,5 +177,5 @@ watch([destination, expiry, customExpiry], () => {
       </dl>
       <p class="field-help">The code on the right encodes this short link.</p>
     </div>
-  </div>
+  </form>
 </template>

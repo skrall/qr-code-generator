@@ -10,8 +10,16 @@ withDefaults(
     payload: string
     /** Shown before there is anything to render; the short link type needs a different prompt. */
     placeholder?: string
+    /** True when the code shows a draft of the destination rather than the final payload. */
+    draft?: boolean
+    /** False while the payload is a draft, so a destination code cannot be downloaded. */
+    downloadable?: boolean
   }>(),
-  { placeholder: 'Fill in the required fields and the code appears here.' },
+  {
+    placeholder: 'Fill in the required fields and the code appears here.',
+    draft: false,
+    downloadable: true,
+  },
 )
 
 defineEmits<{
@@ -30,11 +38,23 @@ defineEmits<{
 
     <p v-if="state === 'error'" class="error" role="alert">{{ error }}</p>
 
+    <div v-if="draft" class="notice">
+      <p>
+        Draft preview: this code encodes the destination. Create the link to encode the short
+        URL instead.
+      </p>
+    </div>
+
     <div class="preview-actions">
-      <button type="button" class="primary" :disabled="!url" @click="$emit('download', 'png')">
+      <button
+        type="button"
+        class="primary"
+        :disabled="!url || !downloadable"
+        @click="$emit('download', 'png')"
+      >
         Download PNG
       </button>
-      <button type="button" :disabled="!url" @click="$emit('download', 'svg')">
+      <button type="button" :disabled="!url || !downloadable" @click="$emit('download', 'svg')">
         Download SVG
       </button>
     </div>

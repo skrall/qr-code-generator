@@ -99,12 +99,20 @@ export function icalDate(value: string): string {
   return compact
 }
 
-function buildUrl(values: Values): string {
-  const url = read(values, 'url')
+/**
+ * Adds https:// when the value has no scheme, matching how a browser treats a bare host.
+ * The short link form uses the same rule so a typed `example.com` is stored as a real URL.
+ */
+export function normalizeUrl(raw: string): string {
+  const url = raw.trim()
   if (!url) {
     return ''
   }
   return /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(url) ? url : `https://${url}`
+}
+
+function buildUrl(values: Values): string {
+  return normalizeUrl(read(values, 'url'))
 }
 
 function buildEmail(values: Values): string {

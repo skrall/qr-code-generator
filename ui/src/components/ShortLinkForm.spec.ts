@@ -27,7 +27,11 @@ function response(body: unknown, status = 200): Response {
 }
 
 function mount(
-  handlers: { created?: (link: ShortLink) => void; cleared?: () => void } = {},
+  handlers: {
+    created?: (link: ShortLink) => void
+    cleared?: () => void
+    draft?: (url: string) => void
+  } = {},
 ): HTMLElement {
   host = document.createElement('div')
   document.body.appendChild(host)
@@ -36,6 +40,7 @@ function mount(
       h(ShortLinkForm, {
         onCreated: handlers.created,
         onCleared: handlers.cleared,
+        onDraft: handlers.draft,
       }),
   })
   app.mount(host)
@@ -163,6 +168,45 @@ describe('ShortLinkForm', () => {
     expect(button(container, 'Create link').disabled).toBe(true)
     expect(container.querySelector('.error-text')?.textContent).toContain('already past')
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  test('creates the link when the form is submitted', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(stored, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount()
+
+    await type(container, 'https://example.com/page')
+
+    const form = container.querySelector('form')
+    if (!(form instanceof HTMLFormElement)) {
+      throw new Error('No form')
+    }
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await flush()
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+  })
+
+  test('emits the destination as a draft while typing', async () => {
+    const drafts: string[] = []
+    const container = mount({ draft: (url) => drafts.push(url) })
+
+    await type(container, 'example.com/page')
+
+    expect(drafts).toEqual(['https://example.com/page'])
+  })
+
+  test('normalizes a bare host before creating the link', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(stored, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount()
+
+    await type(container, 'example.com/page')
+    button(container, 'Create link').click()
+    await flush()
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(JSON.parse(String(init.body))).toEqual({ url: 'https://example.com/page' })
   })
 
   test('drops the shown link when the destination changes', async () => {

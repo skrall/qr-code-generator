@@ -46,7 +46,8 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   plain one, so a child would mutate a detached copy: clicks appear to do nothing and no error
   is raised. `StylePanel` takes `qrStyle` for this reason, and `StylePanel.spec.ts` guards it.
 - Creating a short link is an explicit action, not part of the debounced preview. Wiring it into
-  the preview would store a destination on every keystroke.
+  the preview would store a destination on every keystroke. The preview does render a draft of
+  the destination while typing; downloads stay disabled until the short URL exists.
 - The generator stays mounted with `v-show` while the links view is open, so the form state and
   the preview cannot disagree when switching back.
 
