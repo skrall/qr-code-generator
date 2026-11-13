@@ -76,6 +76,35 @@ cd ui && npm run dev
 The dev server is at <http://localhost:5173>. Point it at a different backend with
 `QR_CODE_API=http://localhost:9090 npm run dev`.
 
+### Docker Compose
+
+The image is built with [Cloud Native Buildpacks](https://buildpacks.io), so there is no
+Dockerfile. `docker-compose.yml` runs it with short links in H2 or Postgres:
+
+```bash
+./mvnw spring-boot:build-image   # produces qr-code-generator:0.1.0-SNAPSHOT
+cp .env.example .env             # then set QR_CODE_PASSWORD, and POSTGRES_PASSWORD for postgres
+docker compose up                # runs the profile COMPOSE_PROFILES names in .env
+```
+
+| Profile    | Database                                   | Notes                                     |
+| ---------- | ------------------------------------------ | ----------------------------------------- |
+| `h2`       | the app's built-in H2, as a file on a volume | runs as root to write the volume        |
+| `postgres` | `postgres:18`, on the compose network only | the app waits for it to report healthy    |
+
+`.env` sets `COMPOSE_PROFILES`, so switching to Postgres is a one-line change there;
+`docker compose --profile postgres up` does the same for a single run. Run one profile at a time,
+because both publish the same port. Flyway creates the schema on first start either way.
+
+Only the app is published, and only on `127.0.0.1` (port `APP_PORT`, 8080 by default); Postgres
+is never reachable from the host. Data lives in a named volume per profile and survives
+`down`/`up`; `docker compose --profile <name> down -v` deletes it. `QR_CODE_PASSWORD` is required,
+because the built-in default is published in this README. To serve phones on your network,
+publish the port beyond loopback and set `APP_PUBLIC_BASE_URL` to an address they can reach.
+
+The app container has no healthcheck: the run image is distroless, with no shell or `curl` to
+probe with. Poll `http://127.0.0.1:8080/actuator/health` from the host instead.
+
 ### Build and test
 
 ```bash

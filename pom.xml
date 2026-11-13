@@ -142,6 +142,21 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <image>
+                        <!--
+                            The app binds loopback by default, which is right on a host but wrong
+                            in a container: a port published from the container's loopback is
+                            unreachable. BPE_ variables become runtime environment in the image
+                            (without the prefix they only reach the buildpacks at build time).
+                            Keeping the host side private is the job of the 127.0.0.1: publishes
+                            in docker-compose.yml.
+                        -->
+                        <env>
+                            <BPE_SERVER_ADDRESS>0.0.0.0</BPE_SERVER_ADDRESS>
+                        </env>
+                    </image>
+                </configuration>
             </plugin>
 
             <!--

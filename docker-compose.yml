@@ -1,0 +1,95 @@
+# Runs the QR code generator with its short links in H2 or in Postgres, one profile each:
+#
+#   ./mvnw spring-boot:build-image      # produces the image this file references
+#   cp .env.example .env                # then set QR_CODE_PASSWORD (and POSTGRES_PASSWORD)
+#   docker compose up                   # runs the profile COMPOSE_PROFILES names in .env
+#   docker compose --profile postgres up    # or name it on the command line
+#
+# Run one profile at a time: both app services publish the same port. Only the app is
+# published, and only on the host's loopback; the database stays on the compose network and is
+# never reachable from outside. Data lives in a named volume per profile, so it survives
+# `down`/`up`; `docker compose --profile <name> down -v` deletes it.
+#
+# Modelled on mailoverlord's compose file, without its other engines and without the Dex and
+# oauth2-proxy profiles. The app's own sign-in modes still work here through APP_SECURITY_MODE.
+
+x-app-common: &app-common
+  image: ${QR_CODE_IMAGE:-qr-code-generator:0.1.0-SNAPSHOT}
+  ports:
+    # Loopback only, like the app's own default bind. Drop the 127.0.0.1: to serve other
+    # machines, and set APP_PUBLIC_BASE_URL to an address their phones can reach.
+    - "127.0.0.1:${APP_PORT:-8080}:8080"
+  restart: unless-stopped
+  # No healthcheck: the buildpacks run image is distroless, with no shell, curl or wget to
+  # probe with. Poll http://127.0.0.1:8080/actuator/health from the host instead. The Postgres
+  # container keeps its own healthcheck, so depends_on still waits for the database.
+
+# Shared environment for both app services.
+x-app-env: &app-env
+  # Required: the image's built-in default password is published in the README.
+  QR_CODE_PASSWORD: ${QR_CODE_PASSWORD:?set QR_CODE_PASSWORD in .env}
+  # The image already binds 0.0.0.0 (see pom.xml); stated here so the file does not depend on
+  # an image built with that setting.
+  SERVER_ADDRESS: "0.0.0.0"
+  # The address short links are composed from. It must be one the scanning phone can reach.
+  APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-http://localhost:8080}
+  # Sign-in. basic is the default; viewer and operator users share QR_CODE_PASSWORD.
+  APP_SECURITY_MODE: ${APP_SECURITY_MODE:-basic}
+  APP_SECURITY_VIEWER_USERS: ${APP_SECURITY_VIEWER_USERS:-}
+  APP_SECURITY_OPERATOR_USERS: ${APP_SECURITY_OPERATOR_USERS:-}
+
+services:
+  # ---------------------------------------------------------------- postgres
+  postgres:
+    profiles: [postgres]
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: qrcode
+      POSTGRES_USER: qrcode
+      # Optional at the file level so the h2 profile does not need it; the container itself
+      # refuses to start without one.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+    volumes:
+      # Postgres 18 keeps its data in a versioned directory under /var/lib/postgresql, so the
+      # volume mounts the parent rather than .../data.
+      - qr-code-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qrcode -d qrcode"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  qr-code-generator-postgres:
+    <<: *app-common
+    profiles: [postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      # The driver is inferred from the URL, and Flyway creates the schema on first start.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/qrcode
+      SPRING_DATASOURCE_USERNAME: qrcode
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-}
+
+  # ---------------------------------------------------------------------- h2
+  # The image already ships H2, so this profile is the app alone with a volume for the file.
+  # The image runs as an unprivileged user while Docker creates the volume root-owned, so the
+  # container runs as root to write there (the same trade mailoverlord makes). For anything
+  # long-lived, prefer the postgres profile.
+  qr-code-generator-h2:
+    <<: *app-common
+    profiles: [h2]
+    user: "0"
+    volumes:
+      - qr-code-h2:/data
+    environment:
+      <<: *app-env
+      SPRING_DATASOURCE_URL: "jdbc:h2:file:/data/qr-code-generator;DB_CLOSE_ON_EXIT=FALSE"
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: ""
+
+volumes:
+  qr-code-postgres:
+  qr-code-h2:
