@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ErrorCorrection, FinderShape, ModuleShape, QrStyle } from '../api/client'
+import BackgroundImagePanel from './BackgroundImagePanel.vue'
 import FinderArtworkPanel from './FinderArtworkPanel.vue'
 
 /**
@@ -213,6 +214,14 @@ function isActive(preset: Preset): boolean {
           </option>
         </select>
       </label>
+    </div>
+
+    <div class="control">
+      <span class="control-label">Background image</span>
+      <BackgroundImagePanel v-model="qrStyle.backgroundImage" />
+      <p class="field-help">
+        The image sits behind the code; it is washed so the modules stay readable.
+      </p>
     </div>
 
     <div class="control-grid">

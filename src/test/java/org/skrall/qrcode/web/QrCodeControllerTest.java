@@ -78,6 +78,17 @@ class QrCodeControllerTest {
     }
 
     @Test
+    void rejectsAnUnusableBackgroundImage() throws Exception {
+        mockMvc.perform(post("/api/qr-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"backgroundImage":{"dataUrl":"not-a-data-url"}}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("data URL")));
+    }
+
+    @Test
     void rejectsContentThatDoesNotFit() throws Exception {
         mockMvc.perform(post("/api/qr-codes")
                         .contentType(MediaType.APPLICATION_JSON)

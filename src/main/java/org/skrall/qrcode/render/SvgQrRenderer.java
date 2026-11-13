@@ -46,6 +46,12 @@ public class SvgQrRenderer {
         }
         svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
                 .append("\" fill=\"").append(RenderOptions.hex(options.background())).append("\"/>\n");
+        if (options.backgroundImage() != null) {
+            svg.append("  <image x=\"0\" y=\"0\" width=\"").append(size)
+                    .append("\" height=\"").append(size)
+                    .append("\" preserveAspectRatio=\"xMidYMid slice\" href=\"")
+                    .append(attribute(options.backgroundImage().dataUrl())).append("\"/>\n");
+        }
 
         svg.append("  <g fill=\"").append(RenderOptions.hex(options.foreground())).append("\">\n");
         for (int row = 0; row < dimension; row++) {

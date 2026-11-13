@@ -4,11 +4,6 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Base64;
-import javax.imageio.ImageIO;
 import org.skrall.qrcode.FinderArtworkException;
 import org.skrall.qrcode.model.QrFinderArtwork;
 
@@ -44,8 +39,9 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
 
         BufferedImage source = ImageDataUrl.decode(
                 artwork.dataUrl(), "style.finderArtwork", "finder artwork", FinderArtworkException::new);
-        BufferedImage adjusted = adjust(flatten(fit(source), finderColor), background);
-        return new FinderArtworkImage(adjusted, dataUrl(adjusted));
+        BufferedImage adjusted = adjust(Images.flatten(fit(source), finderColor), background);
+        return new FinderArtworkImage(
+                adjusted, Images.pngDataUrl(adjusted, "Could not encode the finder artwork."));
     }
 
     /** Shrinks a large source to something worth embedding; the eye is only seven modules wide. */
@@ -72,34 +68,13 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
     }
 
     /**
-     * Composites the artwork over the corner colour, so transparent pixels become that colour.
-     *
-     * <p>Flattening first means the contrast pass sees the colour that will actually be drawn,
-     * rather than a semi-transparent pixel whose result depends on what is underneath.
-     */
-    private static BufferedImage flatten(BufferedImage source, Color finderColor) {
-        BufferedImage flattened =
-                new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        Graphics2D graphics = flattened.createGraphics();
-        try {
-            graphics.setColor(finderColor);
-            graphics.fillRect(0, 0, source.getWidth(), source.getHeight());
-            graphics.drawImage(source, 0, 0, null);
-        } finally {
-            graphics.dispose();
-        }
-        return flattened;
-    }
-
-    /**
      * Pushes every pixel far enough from the background to keep the rings distinct.
      *
      * <p>On a light background the pixels are darkened, preserving hue; on a dark background they
      * are lightened towards white. The image is already opaque, so every drawn pixel is covered.
      */
     private static BufferedImage adjust(BufferedImage source, Color background) {
-        double backgroundLuminance =
-                luminance(background.getRed(), background.getGreen(), background.getBlue());
+        double backgroundLuminance = Images.luminance(background);
         boolean lightBackground = backgroundLuminance >= 128;
 
         int width = source.getWidth();
@@ -113,22 +88,22 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
                 int green = (argb >>> 8) & 0xff;
                 int blue = argb & 0xff;
 
-                double pixelLuminance = luminance(red, green, blue);
+                double pixelLuminance = Images.luminance(red, green, blue);
                 if (lightBackground) {
                     double target = Math.max(0, backgroundLuminance - MIN_CONTRAST);
                     if (pixelLuminance > target) {
                         double factor = pixelLuminance == 0 ? 0 : target / pixelLuminance;
-                        red = clamp(red * factor);
-                        green = clamp(green * factor);
-                        blue = clamp(blue * factor);
+                        red = Images.clamp(red * factor);
+                        green = Images.clamp(green * factor);
+                        blue = Images.clamp(blue * factor);
                     }
                 } else {
                     double target = Math.min(255, backgroundLuminance + MIN_CONTRAST);
                     if (pixelLuminance < target) {
                         double factor = (target - pixelLuminance) / Math.max(1, 255 - pixelLuminance);
-                        red = clamp(red + (255 - red) * factor);
-                        green = clamp(green + (255 - green) * factor);
-                        blue = clamp(blue + (255 - blue) * factor);
+                        red = Images.clamp(red + (255 - red) * factor);
+                        green = Images.clamp(green + (255 - green) * factor);
+                        blue = Images.clamp(blue + (255 - blue) * factor);
                     }
                 }
 
@@ -136,23 +111,5 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
             }
         }
         return adjusted;
-    }
-
-    private static double luminance(int red, int green, int blue) {
-        return 0.299 * red + 0.587 * green + 0.114 * blue;
-    }
-
-    private static int clamp(double value) {
-        return (int) Math.max(0, Math.min(255, Math.round(value)));
-    }
-
-    private static String dataUrl(BufferedImage image) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            ImageIO.write(image, "png", out);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Could not encode the finder artwork.", e);
-        }
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(out.toByteArray());
     }
 }

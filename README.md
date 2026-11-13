@@ -10,6 +10,8 @@ by the same process.
   drawn separately so the outer ring, the gap and the centre stay concentric.
 - **Logos** — drop in a PNG, JPEG or GIF and it is centred on a light plate. The plate's size,
   padding, roundness and colour are adjustable.
+- **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
+  background colour so the modules keep their contrast.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
   bitcoin.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
@@ -110,6 +112,7 @@ black-on-white code.
 | `errorCorrection` | `LOW`, `MEDIUM`, `QUARTILE`, `HIGH` | `MEDIUM` |
 | `foreground`      | `#rrggbb`                     | `#000000`    |
 | `background`      | `#rrggbb`                     | `#ffffff`    |
+| `backgroundImage` | an image data URL              | none         |
 | `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR`, `LIQUID` | `SQUARE` |
 | `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND`, `CUSTOM` | `SQUARE` |
 | `finderColor`     | `#rrggbb`                     | `foreground` |
@@ -170,6 +173,29 @@ dark rings comes from the image. `finderColor` is the fallback for transparent p
 The same PNG, JPEG and GIF limits as a logo apply. Artwork is adjusted so its luminance stays at
 least 96/255 away from the background colour, which keeps the rings readable even when the image
 is mostly light. `CUSTOM` without artwork falls back to a square eye.
+
+### Background image
+
+Send `backgroundImage` to draw an image behind the whole code. The image is cropped to a square
+and stretched to the output size; the modules and the quiet zone are drawn over it.
+
+```json
+{
+  "data": "https://example.com",
+  "style": {
+    "backgroundImage": {
+      "dataUrl": "data:image/png;base64,iVBORw0KGgo..."
+    }
+  }
+}
+```
+
+The same PNG, JPEG and GIF limits as a logo apply. Because an arbitrary image can be darker than
+the modules, every pixel is blended toward the `background` colour until it is at least 96/255
+away from the luminance of everything drawn on top: the foreground, the `finderColor` and any
+finder artwork. A dark photograph therefore becomes a pale wash, and a bright one keeps most of
+its colour. A light finder colour or light artwork raises the bar, so less of the image shows. Transparent pixels become the background colour. The SVG renderer
+embeds the washed PNG, so both formats show the same pixels.
 
 ### Errors
 
@@ -291,10 +317,16 @@ back in the background colour. The artwork is adjusted against that background b
 so a light image cannot erase the rings, and the SVG renderer embeds the adjusted PNG rather than
 the original data URL. Both formats therefore show the same pixels.
 
+A background image is drawn first, then the modules and the eyes go on top. Its pixels are washed
+toward the background colour until they contrast with the modules and the eyes, so a busy or dark
+image cannot make the code unscannable. The finder gaps and the logo plate stay solid, which keeps their
+structure readable. The SVG renderer embeds the washed image rather than the original upload.
+
 ## Notes
 
-- No upload storage: a logo lives only in the request that carries it. Short links are the one
-  thing stored, in the database, because they have to outlive a restart.
+- No upload storage: a logo, finder artwork or background image lives only in the request that
+  carries it. Short links are the one thing stored, in the database, because they have to outlive
+  a restart.
 - The UI keeps each type's values separately, so switching from a vCard to a WiFi code and back
   does not discard what was typed.
 - The preview is debounced and cancels the previous request, so typing does not queue renders.

@@ -15,6 +15,11 @@ export interface QrFinderArtwork {
   dataUrl: string
 }
 
+/** An image drawn behind the code. */
+export interface QrBackgroundImage {
+  dataUrl: string
+}
+
 export interface QrLogo {
   dataUrl: string
   sizePercent: number
@@ -29,6 +34,7 @@ export interface QrStyle {
   errorCorrection: ErrorCorrection
   foreground: string
   background: string
+  backgroundImage: QrBackgroundImage | null
   moduleShape: ModuleShape
   finderShape: FinderShape
   finderColor: string
@@ -83,6 +89,7 @@ export async function renderQrCode(
     // out otherwise instead of sending megabytes the server would ignore.
     style: {
       ...request.style,
+      backgroundImage: request.style.backgroundImage ?? undefined,
       finderArtwork:
         request.style.finderShape === 'CUSTOM'
           ? (request.style.finderArtwork ?? undefined)
@@ -140,6 +147,11 @@ export async function readLogoFile(file: File): Promise<QrLogo> {
 /** Reads finder artwork into the data URL the API expects. */
 export async function readFinderArtworkFile(file: File): Promise<QrFinderArtwork> {
   return { dataUrl: await readImageFile(file, 'finder artwork') }
+}
+
+/** Reads a background image into the data URL the API expects. */
+export async function readBackgroundImageFile(file: File): Promise<QrBackgroundImage> {
+  return { dataUrl: await readImageFile(file, 'background image') }
 }
 
 /** Stores a destination and returns the short link that redirects to it. */

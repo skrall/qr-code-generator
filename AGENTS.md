@@ -36,6 +36,11 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   one-module gap in the background colour, so the 1:1:3:1:1 structure survives. Artwork luminance
   is clamped against the background before drawing; the SVG renderer embeds that adjusted PNG,
   not the original data URL, so both formats show the same pixels.
+- A background image is cropped square, flattened over the background colour and washed until
+  every pixel contrasts with every ink drawn over it (foreground, finder colour and the adjusted
+  finder artwork, so the artwork is decoded first) before the modules are drawn. Keep that order: the
+  image goes down first, then modules and eyes, so the finder gaps and logo plate stay solid. The
+  SVG renderer embeds the washed PNG, not the original upload.
 
 ## Short links
 
