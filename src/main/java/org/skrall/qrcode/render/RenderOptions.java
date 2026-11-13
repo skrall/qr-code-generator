@@ -21,6 +21,7 @@ import org.skrall.qrcode.model.QrStyle;
  * @param finderShape     the shape of the three corner patterns
  * @param finderColor     the corner patterns' colour
  * @param logo            the decoded logo, or {@code null} for none
+ * @param finderArtwork   the decoded artwork that fills a {@link FinderShape#CUSTOM} eye
  */
 public record RenderOptions(
         int size,
@@ -31,7 +32,8 @@ public record RenderOptions(
         ModuleShape moduleShape,
         FinderShape finderShape,
         Color finderColor,
-        LogoImage logo) {
+        LogoImage logo,
+        FinderArtworkImage finderArtwork) {
 
     public static final int DEFAULT_SIZE = 512;
     public static final int DEFAULT_MARGIN = 4;
@@ -39,16 +41,28 @@ public record RenderOptions(
     public static RenderOptions from(QrStyle style, LogoImage logo) {
         QrStyle source = style == null ? QrStyle.EMPTY : style;
         Color foreground = parse(source.foreground(), Color.BLACK);
+        Color background = parse(source.background(), Color.WHITE);
+        Color finderColor = parse(source.finderColor(), foreground);
+        FinderShape finderShape =
+                source.finderShape() == null ? FinderShape.SQUARE : source.finderShape();
+        FinderArtworkImage finderArtwork = finderShape == FinderShape.CUSTOM
+                ? FinderArtworkImage.decode(source.finderArtwork(), finderColor, background)
+                : null;
+        if (finderShape == FinderShape.CUSTOM && finderArtwork == null) {
+            finderShape = FinderShape.SQUARE;
+        }
+
         return new RenderOptions(
                 clamp(source.size(), 128, 4096, DEFAULT_SIZE),
                 clamp(source.margin(), 0, 16, DEFAULT_MARGIN),
                 source.errorCorrection() == null ? ErrorCorrection.MEDIUM : source.errorCorrection(),
                 foreground,
-                parse(source.background(), Color.WHITE),
+                background,
                 source.moduleShape() == null ? ModuleShape.SQUARE : source.moduleShape(),
-                source.finderShape() == null ? FinderShape.SQUARE : source.finderShape(),
-                parse(source.finderColor(), foreground),
-                logo);
+                finderShape,
+                finderColor,
+                logo,
+                finderArtwork);
     }
 
     private static int clamp(Integer value, int min, int max, int fallback) {

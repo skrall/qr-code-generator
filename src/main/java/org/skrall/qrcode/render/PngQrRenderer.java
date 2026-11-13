@@ -4,6 +4,7 @@ import com.google.zxing.common.BitMatrix;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Shape;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
@@ -234,6 +235,58 @@ public class PngQrRenderer {
                 graphics.setColor(foreground);
                 graphics.fill(diamond(x, y, side, 2 * scale));
             }
+            case CUSTOM -> drawCustomEye(graphics, x, y, scale, options);
+        }
+    }
+
+    /**
+     * The standard square eye with the artwork filling its two dark regions.
+     *
+     * <p>The outer square and the centre are filled with the artwork, then the one-module gap is
+     * painted back in the background colour. The ring and centre are always present, so the
+     * 1:1:3:1:1 structure survives whatever the image contains. The artwork was already flattened
+     * over {@code finderColor}, so transparent pixels are that colour.
+     */
+    private static void drawCustomEye(
+            Graphics2D graphics, double x, double y, double scale, RenderOptions options) {
+
+        FinderArtworkImage artwork = options.finderArtwork();
+        if (artwork == null) {
+            // RenderOptions already falls back to SQUARE; this only guards a direct caller.
+            return;
+        }
+
+        double side = FINDER * scale;
+        Shape outer = new Rectangle2D.Double(x, y, side, side);
+        Shape gap = new Rectangle2D.Double(
+                x + scale, y + scale, side - 2 * scale, side - 2 * scale);
+        Shape centre = new Rectangle2D.Double(x + 2 * scale, y + 2 * scale, 3 * scale, 3 * scale);
+
+        drawArtwork(graphics, artwork.image(), outer, x, y, side);
+
+        graphics.setColor(options.background());
+        graphics.fill(gap);
+
+        drawArtwork(graphics, artwork.image(), centre, x, y, side);
+    }
+
+    /** Draws the artwork into the finder footprint, clipped to one of its dark regions. */
+    private static void drawArtwork(
+            Graphics2D graphics, BufferedImage image, Shape clip, double x, double y, double side) {
+
+        Graphics2D clipped = (Graphics2D) graphics.create();
+        try {
+            clipped.clip(clip);
+            clipped.setRenderingHint(
+                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            double fit = Math.min(side / image.getWidth(), side / image.getHeight());
+            int width = (int) Math.round(image.getWidth() * fit);
+            int height = (int) Math.round(image.getHeight() * fit);
+            int left = (int) Math.round(x + (side - width) / 2.0);
+            int top = (int) Math.round(y + (side - height) / 2.0);
+            clipped.drawImage(image, left, top, width, height, null);
+        } finally {
+            clipped.dispose();
         }
     }
 

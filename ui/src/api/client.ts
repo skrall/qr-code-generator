@@ -7,8 +7,13 @@
 
 export type ErrorCorrection = 'LOW' | 'MEDIUM' | 'QUARTILE' | 'HIGH'
 export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS' | 'STAR' | 'LIQUID'
-export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE' | 'LEAF' | 'DIAMOND'
+export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE' | 'LEAF' | 'DIAMOND' | 'CUSTOM'
 export type QrFormat = 'png' | 'svg'
+
+/** An image that fills the dark rings of a custom finder pattern. */
+export interface QrFinderArtwork {
+  dataUrl: string
+}
 
 export interface QrLogo {
   dataUrl: string
@@ -27,6 +32,7 @@ export interface QrStyle {
   moduleShape: ModuleShape
   finderShape: FinderShape
   finderColor: string
+  finderArtwork: QrFinderArtwork | null
   logo: QrLogo | null
 }
 
@@ -60,10 +66,10 @@ export interface LinkInput {
 }
 
 /** The formats the server can decode, which is narrower than what a browser can display. */
-const SUPPORTED_LOGO_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif'])
+const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif'])
 
 /** Matches the server's decoded-size limit. */
-const MAX_LOGO_BYTES = 2_000_000
+const MAX_IMAGE_BYTES = 2_000_000
 
 export async function renderQrCode(
   request: RenderRequest,
@@ -72,9 +78,17 @@ export async function renderQrCode(
 ): Promise<Blob> {
   const body = {
     data: request.data,
-    // An absent logo is omitted rather than sent as null, so the document matches the shape
-    // the API documents.
-    style: { ...request.style, logo: request.style.logo ?? undefined },
+    // Absent images are omitted rather than sent as null, so the document matches the shape
+    // the API documents. Artwork is only useful with the custom finder shape, so it is left
+    // out otherwise instead of sending megabytes the server would ignore.
+    style: {
+      ...request.style,
+      finderArtwork:
+        request.style.finderShape === 'CUSTOM'
+          ? (request.style.finderArtwork ?? undefined)
+          : undefined,
+      logo: request.style.logo ?? undefined,
+    },
   }
 
   const response = await fetch(`/api/qr-codes?format=${format}`, {
@@ -91,33 +105,41 @@ export async function renderQrCode(
 }
 
 /**
- * Reads a logo into the data URL the API expects.
+ * Reads an image file into a data URL.
  *
  * <p>The checks here are the same ones the server makes, but failing in the browser is faster and
  * lets the message appear next to the file picker rather than in the preview.
  */
-export async function readLogoFile(file: File): Promise<QrLogo> {
-  if (!SUPPORTED_LOGO_TYPES.has(file.type)) {
+async function readImageFile(file: File, noun: string): Promise<string> {
+  if (!SUPPORTED_IMAGE_TYPES.has(file.type)) {
     throw new Error('Choose a PNG, JPEG or GIF image.')
   }
-  if (file.size > MAX_LOGO_BYTES) {
-    throw new Error('The logo must be at most 2 MB.')
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error(`The ${noun} must be at most 2 MB.`)
   }
 
-  const dataUrl = await new Promise<string>((resolve, reject) => {
+  return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('The logo could not be read.'))
+    reader.onerror = () => reject(new Error(`The ${noun} could not be read.`))
     reader.readAsDataURL(file)
   })
+}
 
+/** Reads a logo into the data URL and defaults the API expects. */
+export async function readLogoFile(file: File): Promise<QrLogo> {
   return {
-    dataUrl,
+    dataUrl: await readImageFile(file, 'logo'),
     sizePercent: 20,
     paddingPercent: 8,
     background: '#ffffff',
     radiusPercent: 25,
   }
+}
+
+/** Reads finder artwork into the data URL the API expects. */
+export async function readFinderArtworkFile(file: File): Promise<QrFinderArtwork> {
+  return { dataUrl: await readImageFile(file, 'finder artwork') }
 }
 
 /** Stores a destination and returns the short link that redirects to it. */

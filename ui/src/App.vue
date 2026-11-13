@@ -30,6 +30,7 @@ const style = reactive<QrStyle>({
   moduleShape: 'ROUNDED',
   finderShape: 'ROUNDED',
   finderColor: '#3158c4',
+  finderArtwork: null,
   logo: null,
 })
 
