@@ -131,6 +131,30 @@ class QrCodeServiceTest {
         assertThat(decode(image)).isEqualTo(data);
     }
 
+    @Test
+    void theStarCodeWithLeafEyesStillDecodes() throws IOException {
+        String data = "https://example.com/star?leaf=1";
+        QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
+                ModuleShape.STAR, FinderShape.LEAF, "#7c3aed", null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request(data, style), QrFormat.PNG)));
+
+        assertThat(decode(image)).isEqualTo(data);
+    }
+
+    @Test
+    void theStarCodeWithDiamondEyesStillDecodes() throws IOException {
+        String data = "https://example.com/star?diamond=1";
+        QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
+                ModuleShape.STAR, FinderShape.DIAMOND, "#7c3aed", null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request(data, style), QrFormat.PNG)));
+
+        assertThat(decode(image)).isEqualTo(data);
+    }
+
     private static String decode(BufferedImage image) {
         int width = image.getWidth();
         int height = image.getHeight();

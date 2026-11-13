@@ -9,5 +9,9 @@ package org.skrall.qrcode.model;
 public enum FinderShape {
     SQUARE,
     ROUNDED,
-    CIRCLE
+    CIRCLE,
+    /** Rounded on two opposite corners, square on the other two. */
+    LEAF,
+    /** A square rotated a quarter turn, inscribed in the finder's footprint. */
+    DIAMOND
 }

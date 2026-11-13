@@ -82,7 +82,25 @@ public class SvgQrRenderer {
                         .append("\" cy=\"").append(num(y + inset + radius))
                         .append("\" r=\"").append(num(radius)).append("\"/>\n");
             }
+            case STAR -> svg.append("    <path d=\"").append(starPath(x, y, scale)).append("\"/>\n");
         }
+    }
+
+    /** Mirrors {@link PngQrRenderer}'s star: wide waist, tips at the middle of each cell edge. */
+    private static String starPath(double x, double y, double scale) {
+        double centreX = x + scale / 2;
+        double centreY = y + scale / 2;
+        double outer = scale / 2;
+        double inner = scale * 0.36 / Math.sqrt(2);
+        return "M " + num(centreX) + " " + num(centreY - outer)
+                + " L " + num(centreX + inner) + " " + num(centreY - inner)
+                + " L " + num(centreX + outer) + " " + num(centreY)
+                + " L " + num(centreX + inner) + " " + num(centreY + inner)
+                + " L " + num(centreX) + " " + num(centreY + outer)
+                + " L " + num(centreX - inner) + " " + num(centreY + inner)
+                + " L " + num(centreX - outer) + " " + num(centreY)
+                + " L " + num(centreX - inner) + " " + num(centreY - inner)
+                + " Z";
     }
 
     private static void appendEye(StringBuilder svg, double x, double y, double scale, RenderOptions options) {
@@ -105,7 +123,45 @@ public class SvgQrRenderer {
                 appendCircle(svg, x + side / 2, y + side / 2, side / 2 - scale, background);
                 appendCircle(svg, x + side / 2, y + side / 2, 1.5 * scale, foreground);
             }
+            case LEAF -> {
+                appendPath(svg, leafPath(x, y, side, 2.4 * scale), foreground);
+                appendPath(svg, leafPath(x + scale, y + scale, side - 2 * scale, 1.6 * scale), background);
+                appendPath(svg, leafPath(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale), foreground);
+            }
+            case DIAMOND -> {
+                appendPath(svg, diamondPath(x, y, side, 0), foreground);
+                appendPath(svg, diamondPath(x, y, side, scale), background);
+                appendPath(svg, diamondPath(x, y, side, 2 * scale), foreground);
+            }
         }
+    }
+
+    /** Mirrors {@link PngQrRenderer}'s leaf: rounded top-left and bottom-right corners. */
+    private static String leafPath(double x, double y, double side, double radius) {
+        double r = Math.min(radius, side / 2);
+        return "M " + num(x + r) + " " + num(y)
+                + " L " + num(x + side) + " " + num(y)
+                + " L " + num(x + side) + " " + num(y + side - r)
+                + " Q " + num(x + side) + " " + num(y + side) + " " + num(x + side - r) + " " + num(y + side)
+                + " L " + num(x) + " " + num(y + side)
+                + " L " + num(x) + " " + num(y + r)
+                + " Q " + num(x) + " " + num(y) + " " + num(x + r) + " " + num(y)
+                + " Z";
+    }
+
+    /** Mirrors {@link PngQrRenderer}'s diamond: one bounding box, inset rings stay concentric. */
+    private static String diamondPath(double x, double y, double side, double inset) {
+        double centreX = x + side / 2;
+        double centreY = y + side / 2;
+        return "M " + num(centreX) + " " + num(y + inset)
+                + " L " + num(x + side - inset) + " " + num(centreY)
+                + " L " + num(centreX) + " " + num(y + side - inset)
+                + " L " + num(x + inset) + " " + num(centreY)
+                + " Z";
+    }
+
+    private static void appendPath(StringBuilder svg, String path, String fill) {
+        svg.append("  <path d=\"").append(path).append("\" fill=\"").append(fill).append("\"/>\n");
     }
 
     private static void appendRect(StringBuilder svg, double x, double y, double side, double radius, String fill) {

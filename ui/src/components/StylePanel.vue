@@ -58,18 +58,30 @@ const presets: readonly Preset[] = [
     background: '#0f172a',
     finderColor: '#8ab4ff',
   },
+  {
+    id: 'stars',
+    label: 'Stars',
+    moduleShape: 'STAR',
+    finderShape: 'DIAMOND',
+    foreground: '#1f2937',
+    background: '#ffffff',
+    finderColor: '#7c3aed',
+  },
 ]
 
 const moduleShapes: readonly { value: ModuleShape; label: string }[] = [
   { value: 'SQUARE', label: 'Squares' },
   { value: 'ROUNDED', label: 'Rounded' },
   { value: 'DOTS', label: 'Dots' },
+  { value: 'STAR', label: 'Stars' },
 ]
 
 const finderShapes: readonly { value: FinderShape; label: string }[] = [
   { value: 'SQUARE', label: 'Square' },
   { value: 'ROUNDED', label: 'Rounded' },
   { value: 'CIRCLE', label: 'Circle' },
+  { value: 'LEAF', label: 'Leaf' },
+  { value: 'DIAMOND', label: 'Diamond' },
 ]
 
 const errorCorrections: readonly { value: ErrorCorrection; label: string }[] = [

@@ -6,8 +6,8 @@
  */
 
 export type ErrorCorrection = 'LOW' | 'MEDIUM' | 'QUARTILE' | 'HIGH'
-export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS'
-export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE'
+export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS' | 'STAR'
+export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE' | 'LEAF' | 'DIAMOND'
 export type QrFormat = 'png' | 'svg'
 
 export interface QrLogo {

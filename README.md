@@ -4,9 +4,9 @@ A QR code generator that renders the code itself, so the modules, the three corn
 an embedded logo can all be shaped. It is a Spring Boot service with a Vue UI, and both are served
 by the same process.
 
-- **Rounded modules** — squares, rounded squares or dots.
-- **Shaped corner patterns** — square, rounded or circular finder patterns, drawn separately so
-  the outer ring, the gap and the centre stay concentric.
+- **Shaped modules** — squares, rounded squares, dots or four-point stars.
+- **Shaped corner patterns** — square, rounded, circular, leaf or diamond finder patterns,
+  drawn separately so the outer ring, the gap and the centre stay concentric.
 - **Logos** — drop in a PNG, JPEG or GIF and it is centred on a light plate. The plate's size,
   padding, roundness and colour are adjustable.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
@@ -109,8 +109,8 @@ black-on-white code.
 | `errorCorrection` | `LOW`, `MEDIUM`, `QUARTILE`, `HIGH` | `MEDIUM` |
 | `foreground`      | `#rrggbb`                     | `#000000`    |
 | `background`      | `#rrggbb`                     | `#ffffff`    |
-| `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`   | `SQUARE`     |
-| `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE` | `SQUARE`     |
+| `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR` | `SQUARE` |
+| `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND` | `SQUARE` |
 | `finderColor`     | `#rrggbb`                     | `foreground` |
 
 ### Logo
