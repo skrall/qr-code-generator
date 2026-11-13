@@ -101,6 +101,29 @@ class QrCodeControllerTest {
     }
 
     @Test
+    void rejectsFrameTextTheFontCannotDraw() throws Exception {
+        mockMvc.perform(post("/api/qr-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"frame":{"title":"扫一扫"}}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value(
+                        org.hamcrest.Matchers.containsString("which the bundled font cannot draw")));
+    }
+
+    @Test
+    void rejectsAFrameWithOutOfRangeSizes() throws Exception {
+        mockMvc.perform(post("/api/qr-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"frame":{"titleSizePercent":50,"bleedPercent":-1,"textColor":"red"}}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[*].field").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        "style.frame.titleSizePercent", "style.frame.bleedPercent", "style.frame.textColor")));
+    }
+
+    @Test
     void rejectsAnUnusableLogo() throws Exception {
         mockMvc.perform(post("/api/qr-codes")
                         .contentType(MediaType.APPLICATION_JSON)

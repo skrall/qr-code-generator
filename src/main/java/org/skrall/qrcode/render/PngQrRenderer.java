@@ -41,11 +41,19 @@ public class PngQrRenderer {
         int dimension = matrix.getWidth();
         double scale = (double) options.size() / (dimension + options.margin() * 2);
 
-        BufferedImage image = new BufferedImage(options.size(), options.size(), BufferedImage.TYPE_INT_ARGB);
+        BufferedImage image =
+                new BufferedImage(options.width(), options.height(), BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
         try {
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+            if (options.frame() != null) {
+                drawFrame(graphics, options.frame());
+                // The code is drawn in its own coordinates, as when unframed. The offset is whole
+                // pixels, so the modules land on the same grid, and the gradient paint moves too.
+                graphics.translate(options.frame().codeX(), options.frame().codeY());
+            }
 
             graphics.setColor(options.background());
             graphics.fillRect(0, 0, options.size(), options.size());
@@ -83,6 +91,20 @@ public class PngQrRenderer {
             throw new UncheckedIOException("Could not encode the rendered image as PNG.", e);
         }
         return out.toByteArray();
+    }
+
+    /** The card, its border and its text; the shapes come from {@link Frame}, as in the SVG. */
+    private static void drawFrame(Graphics2D graphics, Frame frame) {
+        graphics.setColor(frame.background());
+        graphics.fillRect(0, 0, frame.width(), frame.height());
+        if (frame.border() != null) {
+            graphics.setColor(frame.borderColor());
+            graphics.fill(frame.border());
+        }
+        if (frame.text() != null) {
+            graphics.setColor(frame.textColor());
+            graphics.fill(frame.text());
+        }
     }
 
     /**

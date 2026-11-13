@@ -1,6 +1,8 @@
 package org.skrall.qrcode.render;
 
 import com.google.zxing.common.BitMatrix;
+import java.awt.Shape;
+import java.awt.geom.PathIterator;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -40,16 +42,32 @@ public class SvgQrRenderer {
 
         StringBuilder svg = new StringBuilder(8192);
         svg.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-        svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"").append(size)
-                .append("\" height=\"").append(size)
-                .append("\" viewBox=\"0 0 ").append(size).append(' ').append(size)
+        int width = options.width();
+        int height = options.height();
+        Frame frame = options.frame();
+        svg.append("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"").append(width)
+                .append("\" height=\"").append(height)
+                .append("\" viewBox=\"0 0 ").append(width).append(' ').append(height)
                 .append("\" role=\"img\">\n");
-        svg.append("  <title>QR code</title>\n");
+        // The text is drawn as outlines, so the accessible name and description carry it instead.
+        svg.append("  <title>").append(text(frame == null || frame.title() == null
+                ? "QR code"
+                : "QR code: " + frame.title())).append("</title>\n");
+        if (frame != null && frame.caption() != null) {
+            svg.append("  <desc>").append(text(frame.caption())).append("</desc>\n");
+        }
         if (options.finderShape() == FinderShape.CUSTOM && options.finderArtwork() != null) {
             appendFinderClipPaths(svg, scale);
         }
         if (options.gradient() != null) {
             appendGradient(svg, options.gradient(), size);
+        }
+        if (frame != null) {
+            appendFrame(svg, frame);
+            // Everything below is drawn in the code's own coordinates, as when unframed. Clip
+            // paths and the gradient are in user space, so they move with the group.
+            svg.append("  <g transform=\"translate(").append(frame.codeX()).append(' ')
+                    .append(frame.codeY()).append(")\">\n");
         }
         svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
                 .append("\" fill=\"").append(RenderOptions.hex(options.background())).append("\"/>\n");
@@ -75,8 +93,51 @@ public class SvgQrRenderer {
         appendEye(svg, offset(0, options, scale), offset(dimension - FINDER, options, scale), scale, options);
 
         appendLogo(svg, options);
+        if (frame != null) {
+            svg.append("  </g>\n");
+        }
         svg.append("</svg>\n");
         return svg.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The card, its border and its text, drawn before the code.
+     *
+     * <p>The border and the text are the shapes {@link Frame} built, written out as path data, so
+     * they match what {@link PngQrRenderer} fills.
+     */
+    private static void appendFrame(StringBuilder svg, Frame frame) {
+        svg.append("  <rect width=\"").append(frame.width()).append("\" height=\"").append(frame.height())
+                .append("\" fill=\"").append(RenderOptions.hex(frame.background())).append("\"/>\n");
+        if (frame.border() != null) {
+            appendShape(svg, frame.border(), RenderOptions.hex(frame.borderColor()));
+        }
+        if (frame.text() != null) {
+            appendShape(svg, frame.text(), RenderOptions.hex(frame.textColor()));
+        }
+    }
+
+    /** A Java2D shape as an SVG path, keeping its curves and its winding rule. */
+    private static void appendShape(StringBuilder svg, Shape shape, String fill) {
+        StringBuilder d = new StringBuilder();
+        double[] c = new double[6];
+        PathIterator iterator = shape.getPathIterator(null);
+        String rule = iterator.getWindingRule() == PathIterator.WIND_EVEN_ODD ? "evenodd" : "nonzero";
+        for (; !iterator.isDone(); iterator.next()) {
+            switch (iterator.currentSegment(c)) {
+                case PathIterator.SEG_MOVETO -> d.append('M').append(num(c[0])).append(' ').append(num(c[1]));
+                case PathIterator.SEG_LINETO -> d.append('L').append(num(c[0])).append(' ').append(num(c[1]));
+                case PathIterator.SEG_QUADTO -> d.append('Q').append(num(c[0])).append(' ').append(num(c[1]))
+                        .append(' ').append(num(c[2])).append(' ').append(num(c[3]));
+                case PathIterator.SEG_CUBICTO -> d.append('C').append(num(c[0])).append(' ').append(num(c[1]))
+                        .append(' ').append(num(c[2])).append(' ').append(num(c[3]))
+                        .append(' ').append(num(c[4])).append(' ').append(num(c[5]));
+                case PathIterator.SEG_CLOSE -> d.append('Z');
+                default -> throw new IllegalStateException("Unknown path segment");
+            }
+        }
+        svg.append("  <path d=\"").append(d).append("\" fill=\"").append(fill)
+                .append("\" fill-rule=\"").append(rule).append("\"/>\n");
     }
 
     /**
@@ -392,6 +453,10 @@ public class SvgQrRenderer {
 
     private static String num(double value) {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+    }
+
+    private static String text(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     private static String attribute(String value) {

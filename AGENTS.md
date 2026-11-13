@@ -45,6 +45,11 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   gradient geometry inside a renderer. It spans the canvas in user space, not each module. Its
   check is on the two stops only, which is exact because both formats interpolate in sRGB and
   luminance is linear in sRGB. Adding stops or a linear-light interpolation would break that.
+- A frame's layout and text outlines come from `Frame`; both renderers fill those shapes and
+  translate the code into place. Don't set frame text with SVG `<text>` or a system font: the
+  formats would stop matching. Keep frame lengths whole pixels so the code's grid is unchanged.
+- Frame text is set in the bundled Inter (`src/main/resources/fonts`, OFL). Text it cannot draw is
+  rejected, not drawn as boxes. Swapping the font changes which text is accepted.
 
 ## Short links
 
