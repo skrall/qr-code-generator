@@ -24,12 +24,21 @@ function buttonIn(container: HTMLElement, group: string, label: string): HTMLBut
   return target
 }
 
+function gradientToggle(container: HTMLElement): HTMLInputElement {
+  const toggle = container.querySelector('input[aria-label="Gradient"]')
+  if (!(toggle instanceof HTMLInputElement)) {
+    throw new Error('No gradient toggle')
+  }
+  return toggle
+}
+
 function freshStyle(): QrStyle {
   return {
     size: 640,
     margin: 4,
     errorCorrection: 'QUARTILE',
     foreground: '#111827',
+    gradient: null,
     background: '#ffffff',
     backgroundImage: null,
     moduleShape: 'ROUNDED',
@@ -121,6 +130,65 @@ describe('StylePanel', () => {
 
     expect(container.querySelector('.background-panel input[type="file"]')).not.toBeNull()
     expect(container.textContent).toContain('Background image')
+  })
+
+  test('turning the gradient on seeds it from the current colours', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    expect(container.querySelector('[aria-label="Gradient type"]')).toBeNull()
+    expect(container.querySelector('[aria-label="Foreground colour"]')).not.toBeNull()
+
+    gradientToggle(container).click()
+    await nextTick()
+
+    expect(style.gradient).toEqual({
+      type: 'LINEAR',
+      start: '#111827',
+      end: '#3158c4',
+      angle: 135,
+      finders: false,
+    })
+    // The gradient replaces the foreground, so its picker would only mislead.
+    expect(container.querySelector('[aria-label="Foreground colour"]')).toBeNull()
+    expect(container.textContent).toContain('Angle')
+  })
+
+  test('a radial gradient has no angle', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    gradientToggle(container).click()
+    await nextTick()
+    buttonIn(container, 'Gradient type', 'Radial').click()
+    await nextTick()
+
+    expect(style.gradient?.type).toBe('RADIAL')
+    expect(container.textContent).not.toContain('Angle')
+    expect(container.textContent).toContain('Centre')
+  })
+
+  test('turning the gradient off clears it', async () => {
+    const style = reactive(freshStyle())
+    style.gradient = { type: 'LINEAR', start: '#111827', end: '#3158c4', angle: 90, finders: true }
+    const container = mount(style)
+
+    gradientToggle(container).click()
+    await nextTick()
+
+    expect(style.gradient).toBeNull()
+  })
+
+  test('a preset clears the gradient', async () => {
+    const style = reactive(freshStyle())
+    style.gradient = { type: 'LINEAR', start: '#111827', end: '#3158c4', angle: 90, finders: true }
+    const container = mount(style)
+
+    buttonIn(container, 'Style presets', 'Classic').click()
+    await nextTick()
+
+    expect(style.gradient).toBeNull()
+    expect(style.foreground).toBe('#111827')
   })
 
   test('removing a background image clears it from the style', async () => {

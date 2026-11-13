@@ -10,6 +10,8 @@ by the same process.
   drawn separately so the outer ring, the gap and the centre stay concentric.
 - **Logos** — drop in a PNG, JPEG or GIF and it is centred on a light plate. The plate's size,
   padding, roundness and colour are adjustable.
+- **Gradients** — linear or radial, across the modules and optionally the corner patterns.
+  Colours that would fade into the background are rejected rather than rendered.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
@@ -111,6 +113,7 @@ black-on-white code.
 | `margin`          | 0–16, in modules              | 4            |
 | `errorCorrection` | `LOW`, `MEDIUM`, `QUARTILE`, `HIGH` | `MEDIUM` |
 | `foreground`      | `#rrggbb`                     | `#000000`    |
+| `gradient`        | see below; replaces `foreground` for the modules | none |
 | `background`      | `#rrggbb`                     | `#ffffff`    |
 | `backgroundImage` | an image data URL              | none         |
 | `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR`, `LIQUID` | `SQUARE` |
@@ -192,10 +195,53 @@ and stretched to the output size; the modules and the quiet zone are drawn over 
 
 The same PNG, JPEG and GIF limits as a logo apply. Because an arbitrary image can be darker than
 the modules, every pixel is blended toward the `background` colour until it is at least 96/255
-away from the luminance of everything drawn on top: the foreground, the `finderColor` and any
-finder artwork. A dark photograph therefore becomes a pale wash, and a bright one keeps most of
-its colour. A light finder colour or light artwork raises the bar, so less of the image shows. Transparent pixels become the background colour. The SVG renderer
-embeds the washed PNG, so both formats show the same pixels.
+away from the luminance of everything drawn on top: the foreground (or both gradient stops), the
+`finderColor` and any finder artwork. A dark photograph therefore becomes a pale wash, and a
+bright one keeps most of its colour. A light finder colour or light artwork raises the bar, so
+less of the image shows. Transparent pixels become the background colour. The SVG renderer embeds
+the washed PNG, so both formats show the same pixels.
+
+### Gradient
+
+Send `gradient` to colour the modules with a two-colour gradient instead of `foreground`. It
+spans the whole image, so the colour flows across the code rather than repeating in each module.
+
+```json
+{
+  "data": "https://example.com",
+  "style": {
+    "gradient": {
+      "type": "LINEAR",
+      "start": "#7c3aed",
+      "end": "#0f766e",
+      "angle": 135,
+      "finders": true
+    }
+  }
+}
+```
+
+| Field     | Values                                         | Default  |
+| --------- | ---------------------------------------------- | -------- |
+| `type`    | `LINEAR`, `RADIAL`                             | `LINEAR` |
+| `start`   | `#rrggbb`, the start of the line or the centre | required |
+| `end`     | `#rrggbb`, the end of the line or the corners  | required |
+| `angle`   | 0–360, as in CSS: 0 points up, 90 right        | 180      |
+| `finders` | whether the corner patterns use it too         | `false`  |
+
+A linear gradient runs through the centre at `angle`, just long enough that the furthest corners
+get the pure stop colours, as a CSS `linear-gradient` does. A radial one runs from the centre to
+the corners. With `finders` false the corner patterns keep `finderColor`; a `CUSTOM` finder always
+uses its artwork.
+
+A gradient that fades into the background would erase whichever corner of the code it fades
+into, so the request is rejected with a 400 when:
+
+- either stop is less than 96/255 luminance away from `background`, or
+- one stop is darker than the background and the other lighter, so the blend passes through it.
+
+Checking the two stops is enough. Both formats blend them linearly in sRGB, and luminance is a
+linear function of the sRGB channels, so every colour along the gradient lies between the stops.
 
 ### Errors
 
@@ -319,8 +365,12 @@ the original data URL. Both formats therefore show the same pixels.
 
 A background image is drawn first, then the modules and the eyes go on top. Its pixels are washed
 toward the background colour until they contrast with the modules and the eyes, so a busy or dark
-image cannot make the code unscannable. The finder gaps and the logo plate stay solid, which keeps their
-structure readable. The SVG renderer embeds the washed image rather than the original upload.
+image cannot make the code unscannable. The finder gaps and the logo plate stay solid, which keeps
+their structure readable. The SVG renderer embeds the washed image rather than the original upload.
+
+A gradient's geometry, the line or the circle, is computed once in `Gradient`. `PngQrRenderer`
+builds a Java2D `LinearGradientPaint` or `RadialGradientPaint` from it and `SvgQrRenderer` writes
+the same numbers into a `userSpaceOnUse` gradient element, so the two formats match.
 
 ## Notes
 

@@ -67,6 +67,40 @@ class QrCodeControllerTest {
     }
 
     @Test
+    void rendersAGradient() throws Exception {
+        mockMvc.perform(post("/api/qr-codes?format=svg")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"gradient":{"type":"RADIAL","start":"#101820","end":"#3158c4"}}}"""))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<radialGradient")));
+    }
+
+    @Test
+    void rejectsAGradientThatWouldEraseTheCode() throws Exception {
+        mockMvc.perform(post("/api/qr-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"gradient":{"start":"#101820","end":"#f3f4f6"}}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.detail").value(
+                        org.hamcrest.Matchers.containsString("style.gradient.end #f3f4f6 is too close")));
+    }
+
+    @Test
+    void rejectsAGradientWithoutValidColours() throws Exception {
+        mockMvc.perform(post("/api/qr-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"gradient":{"start":"red","angle":400}}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.errors[*].field").value(org.hamcrest.Matchers.containsInAnyOrder(
+                        "style.gradient.start", "style.gradient.end", "style.gradient.angle")));
+    }
+
+    @Test
     void rejectsAnUnusableLogo() throws Exception {
         mockMvc.perform(post("/api/qr-codes")
                         .contentType(MediaType.APPLICATION_JSON)

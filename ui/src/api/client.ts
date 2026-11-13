@@ -9,6 +9,21 @@ export type ErrorCorrection = 'LOW' | 'MEDIUM' | 'QUARTILE' | 'HIGH'
 export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS' | 'STAR' | 'LIQUID'
 export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE' | 'LEAF' | 'DIAMOND' | 'CUSTOM'
 export type QrFormat = 'png' | 'svg'
+export type GradientType = 'LINEAR' | 'RADIAL'
+
+/**
+ * A two-colour gradient in place of the flat foreground. The server rejects one whose stops do
+ * not both contrast with the background on the same side of it.
+ */
+export interface QrGradient {
+  type: GradientType
+  start: string
+  end: string
+  /** CSS-style direction in degrees: 0 points up, 90 right. Ignored for RADIAL. */
+  angle: number
+  /** Whether the corner patterns take the gradient instead of `finderColor`. */
+  finders: boolean
+}
 
 /** An image that fills the dark rings of a custom finder pattern. */
 export interface QrFinderArtwork {
@@ -33,6 +48,7 @@ export interface QrStyle {
   margin: number
   errorCorrection: ErrorCorrection
   foreground: string
+  gradient: QrGradient | null
   background: string
   backgroundImage: QrBackgroundImage | null
   moduleShape: ModuleShape
@@ -89,6 +105,7 @@ export async function renderQrCode(
     // out otherwise instead of sending megabytes the server would ignore.
     style: {
       ...request.style,
+      gradient: request.style.gradient ?? undefined,
       backgroundImage: request.style.backgroundImage ?? undefined,
       finderArtwork:
         request.style.finderShape === 'CUSTOM'

@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Pattern;
  * @param margin          the quiet zone in modules, 0 to 16, default 4
  * @param errorCorrection the redundancy level, default MEDIUM
  * @param foreground      module colour as {@code #rrggbb}, default black
+ * @param gradient        an optional gradient that replaces the foreground colour of the modules
  * @param background      background colour as {@code #rrggbb}, default white
  * @param backgroundImage an optional image drawn behind the code, washed for contrast
  * @param moduleShape     the shape of a data module, default SQUARE
@@ -35,6 +36,9 @@ public record QrStyle(
         @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "style.foreground must be a hex colour such as #1b2430")
         String foreground,
 
+        @Valid
+        QrGradient gradient,
+
         @Pattern(regexp = "^#[0-9a-fA-F]{6}$", message = "style.background must be a hex colour such as #ffffff")
         String background,
 
@@ -56,5 +60,5 @@ public record QrStyle(
 
     /** A style with every field absent, used to resolve defaults. */
     public static final QrStyle EMPTY =
-            new QrStyle(null, null, null, null, null, null, null, null, null, null, null);
+            new QrStyle(null, null, null, null, null, null, null, null, null, null, null, null);
 }

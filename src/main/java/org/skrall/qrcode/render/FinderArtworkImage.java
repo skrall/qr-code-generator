@@ -16,8 +16,8 @@ import org.skrall.qrcode.model.QrFinderArtwork;
  *
  * <p>Because the artwork is arbitrary, its light pixels could otherwise erase the rings. Every
  * pixel is therefore pushed to a luminance that contrasts with the background by at least
- * {@link #MIN_CONTRAST}. The adjusted image is also what the SVG renderer embeds, so both formats
- * show the same artwork.
+ * {@link Images#MIN_CONTRAST}. The adjusted image is also what the SVG renderer embeds, so both
+ * formats show the same artwork.
  *
  * @param image   the adjusted pixels, used by the PNG renderer
  * @param dataUrl a PNG data URL of the adjusted image, embedded by the SVG renderer
@@ -27,8 +27,6 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
     /** The artwork is only seven modules wide, so a larger source gains nothing. */
     private static final int MAX_EMBEDDED_SIDE = 512;
 
-    /** Minimum luminance distance from the background, on a 0–255 scale. */
-    private static final int MIN_CONTRAST = 96;
 
     public static FinderArtworkImage decode(
             QrFinderArtwork artwork, Color finderColor, Color background) {
@@ -90,7 +88,7 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
 
                 double pixelLuminance = Images.luminance(red, green, blue);
                 if (lightBackground) {
-                    double target = Math.max(0, backgroundLuminance - MIN_CONTRAST);
+                    double target = Math.max(0, backgroundLuminance - Images.MIN_CONTRAST);
                     if (pixelLuminance > target) {
                         double factor = pixelLuminance == 0 ? 0 : target / pixelLuminance;
                         red = Images.clamp(red * factor);
@@ -98,7 +96,7 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
                         blue = Images.clamp(blue * factor);
                     }
                 } else {
-                    double target = Math.min(255, backgroundLuminance + MIN_CONTRAST);
+                    double target = Math.min(255, backgroundLuminance + Images.MIN_CONTRAST);
                     if (pixelLuminance < target) {
                         double factor = (target - pixelLuminance) / Math.max(1, 255 - pixelLuminance);
                         red = Images.clamp(red + (255 - red) * factor);

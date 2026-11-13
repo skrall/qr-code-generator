@@ -26,6 +26,7 @@ const style = reactive<QrStyle>({
   margin: 4,
   errorCorrection: 'QUARTILE',
   foreground: '#111827',
+  gradient: null,
   background: '#ffffff',
   backgroundImage: null,
   moduleShape: 'ROUNDED',

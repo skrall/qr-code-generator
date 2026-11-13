@@ -12,8 +12,9 @@ import org.skrall.qrcode.model.QrBackgroundImage;
  * A decoded background image, washed so the code stays readable on top.
  *
  * <p>The image is cropped to a square and composited over the background colour. Every pixel is
- * then blended toward that colour until it sits at least {@link #MIN_CONTRAST} away from every
- * ink drawn on top: the modules, the eyes and any corner artwork. A dark photograph therefore
+ * then blended toward that colour until it sits at least {@link Images#MIN_CONTRAST} away from
+ * every ink drawn on top: the modules (or both stops of their gradient), the eyes and any corner
+ * artwork. A dark photograph therefore
  * becomes a pale wash rather than swallowing the code. The ink nearest the background sets the
  * bar, so a light corner colour or light artwork leaves less of the image visible.
  *
@@ -28,8 +29,6 @@ public record BackgroundImage(BufferedImage image, String dataUrl) {
     /** The output may be 4096 px; a larger embedded image would only bloat the SVG. */
     private static final int MAX_EMBEDDED_SIDE = 1024;
 
-    /** Minimum luminance distance from the foreground, on a 0–255 scale. */
-    private static final int MIN_CONTRAST = 96;
 
     /**
      * @param foreground decides the direction: the image is lightened when the background is
@@ -89,8 +88,8 @@ public record BackgroundImage(BufferedImage image, String dataUrl) {
         double backgroundLuminance = Images.luminance(background);
         boolean lighten = backgroundLuminance >= Images.luminance(foreground);
         double target = lighten
-                ? Math.min(255, inks.getMax() + MIN_CONTRAST)
-                : Math.max(0, inks.getMin() - MIN_CONTRAST);
+                ? Math.min(255, inks.getMax() + Images.MIN_CONTRAST)
+                : Math.max(0, inks.getMin() - Images.MIN_CONTRAST);
 
         int width = flat.getWidth();
         int height = flat.getHeight();

@@ -3,6 +3,7 @@ package org.skrall.qrcode.render;
 import com.google.zxing.common.BitMatrix;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.Paint;
 import java.awt.RenderingHints;
 import java.awt.Shape;
 import java.awt.geom.Ellipse2D;
@@ -57,7 +58,7 @@ public class PngQrRenderer {
                         options.backgroundImage().image(), 0, 0, options.size(), options.size(), null);
             }
 
-            graphics.setColor(options.foreground());
+            graphics.setPaint(modulePaint(options));
             for (int row = 0; row < dimension; row++) {
                 for (int column = 0; column < dimension; column++) {
                     if (matrix.get(column, row) && !isFinder(row, column, dimension)) {
@@ -107,6 +108,19 @@ public class PngQrRenderer {
                 && column >= 0 && column < dimension
                 && matrix.get(column, row)
                 && !isFinder(row, column, dimension);
+    }
+
+    /** The flat foreground, or the gradient spread over the whole canvas. */
+    private static Paint modulePaint(RenderOptions options) {
+        return options.gradient() == null
+                ? options.foreground()
+                : options.gradient().paint(options.size());
+    }
+
+    private static Paint finderPaint(RenderOptions options) {
+        return options.gradientFinders()
+                ? options.gradient().paint(options.size())
+                : options.finderColor();
     }
 
     private static double offset(int module, RenderOptions options, double scale) {
@@ -200,47 +214,47 @@ public class PngQrRenderer {
 
     private static void drawEye(Graphics2D graphics, double x, double y, double scale, RenderOptions options) {
         double side = FINDER * scale;
-        Color foreground = options.finderColor();
+        Paint foreground = finderPaint(options);
         Color background = options.background();
         switch (options.finderShape()) {
             case SQUARE -> {
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(new Rectangle2D.Double(x, y, side, side));
                 graphics.setColor(background);
                 graphics.fill(new Rectangle2D.Double(x + scale, y + scale, side - 2 * scale, side - 2 * scale));
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(new Rectangle2D.Double(x + 2 * scale, y + 2 * scale, 3 * scale, 3 * scale));
             }
             case ROUNDED -> {
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(rounded(x, y, side, 2.4 * scale));
                 graphics.setColor(background);
                 graphics.fill(rounded(x + scale, y + scale, side - 2 * scale, 1.6 * scale));
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(rounded(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale));
             }
             case CIRCLE -> {
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(new Ellipse2D.Double(x, y, side, side));
                 graphics.setColor(background);
                 graphics.fill(new Ellipse2D.Double(x + scale, y + scale, side - 2 * scale, side - 2 * scale));
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(new Ellipse2D.Double(x + 2 * scale, y + 2 * scale, 3 * scale, 3 * scale));
             }
             case LEAF -> {
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(leaf(x, y, side, 2.4 * scale));
                 graphics.setColor(background);
                 graphics.fill(leaf(x + scale, y + scale, side - 2 * scale, 1.6 * scale));
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(leaf(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale));
             }
             case DIAMOND -> {
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(diamond(x, y, side, 0));
                 graphics.setColor(background);
                 graphics.fill(diamond(x, y, side, scale));
-                graphics.setColor(foreground);
+                graphics.setPaint(foreground);
                 graphics.fill(diamond(x, y, side, 2 * scale));
             }
             case CUSTOM -> drawCustomEye(graphics, x, y, scale, options);
