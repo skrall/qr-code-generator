@@ -20,14 +20,17 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.function.IntPredicate;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
+import org.skrall.qrcode.FinderArtworkException;
 import org.skrall.qrcode.LogoException;
 import org.skrall.qrcode.QrEncodingException;
 import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.FinderShape;
 import org.skrall.qrcode.model.ModuleShape;
 import org.skrall.qrcode.model.QrCodeRequest;
+import org.skrall.qrcode.model.QrFinderArtwork;
 import org.skrall.qrcode.model.QrFormat;
 import org.skrall.qrcode.model.QrLogo;
 import org.skrall.qrcode.model.QrStyle;
@@ -68,7 +71,7 @@ class QrCodeServiceTest {
         for (ModuleShape moduleShape : ModuleShape.values()) {
             for (FinderShape finderShape : FinderShape.values()) {
                 QrStyle style = new QrStyle(256, 2, ErrorCorrection.MEDIUM, "#101820", "#fefefe",
-                        moduleShape, finderShape, "#2a5db0", null);
+                        moduleShape, finderShape, "#2a5db0", null, null);
 
                 assertThat(service.render(request("shape check", style), QrFormat.PNG)).isNotEmpty();
                 assertThat(service.render(request("shape check", style), QrFormat.SVG)).isNotEmpty();
@@ -78,9 +81,9 @@ class QrCodeServiceTest {
 
     @Test
     void embedsTheLogoInTheMiddle() throws IOException {
-        String dataUrl = solidLogo(new Color(0xcc, 0x22, 0x22));
+        String dataUrl = solidPng(new Color(0xcc, 0x22, 0x22));
         QrStyle style = new QrStyle(300, 4, ErrorCorrection.HIGH, "#000000", "#ffffff",
-                ModuleShape.ROUNDED, FinderShape.ROUNDED, null,
+                ModuleShape.ROUNDED, FinderShape.ROUNDED, null, null,
                 new QrLogo(dataUrl, 20, 8, "#ffffff", 25));
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
@@ -94,9 +97,9 @@ class QrCodeServiceTest {
 
     @Test
     void embedsTheLogoInSvgAsADataUrl() throws IOException {
-        String dataUrl = solidLogo(new Color(0x22, 0x88, 0x44));
+        String dataUrl = solidPng(new Color(0x22, 0x88, 0x44));
         QrStyle style = new QrStyle(256, 4, ErrorCorrection.HIGH, "#000000", "#ffffff",
-                ModuleShape.DOTS, FinderShape.CIRCLE, null,
+                ModuleShape.DOTS, FinderShape.CIRCLE, null, null,
                 new QrLogo(dataUrl, 20, 8, "#ffffff", 25));
 
         String svg = new String(service.render(request("logo", style), QrFormat.SVG), StandardCharsets.UTF_8);
@@ -109,8 +112,8 @@ class QrCodeServiceTest {
     void theRoundedCodeWithALogoStillDecodes() throws IOException {
         String data = "https://example.com/rounded?logo=1";
         QrStyle style = new QrStyle(600, 4, ErrorCorrection.HIGH, "#101820", "#ffffff",
-                ModuleShape.ROUNDED, FinderShape.ROUNDED, "#3158c4",
-                new QrLogo(solidLogo(new Color(0xcc, 0x22, 0x22)), 18, 8, "#ffffff", 25));
+                ModuleShape.ROUNDED, FinderShape.ROUNDED, "#3158c4", null,
+                new QrLogo(solidPng(new Color(0xcc, 0x22, 0x22)), 18, 8, "#ffffff", 25));
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
                 service.render(request(data, style), QrFormat.PNG)));
@@ -123,7 +126,7 @@ class QrCodeServiceTest {
     void theDotCodeWithCircleEyesStillDecodes() throws IOException {
         String data = "WIFI:T:WPA;S:Cafe;P:espresso;;";
         QrStyle style = new QrStyle(512, 4, ErrorCorrection.QUARTILE, "#000000", "#ffffff",
-                ModuleShape.DOTS, FinderShape.CIRCLE, null, null);
+                ModuleShape.DOTS, FinderShape.CIRCLE, null, null, null);
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
                 service.render(request(data, style), QrFormat.PNG)));
@@ -135,7 +138,7 @@ class QrCodeServiceTest {
     void theStarCodeWithLeafEyesStillDecodes() throws IOException {
         String data = "https://example.com/star?leaf=1";
         QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
-                ModuleShape.STAR, FinderShape.LEAF, "#7c3aed", null);
+                ModuleShape.STAR, FinderShape.LEAF, "#7c3aed", null, null);
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
                 service.render(request(data, style), QrFormat.PNG)));
@@ -147,7 +150,7 @@ class QrCodeServiceTest {
     void theLiquidCodeStillDecodes() throws IOException {
         String data = "https://example.com/liquid?connected=modules";
         QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
-                ModuleShape.LIQUID, FinderShape.ROUNDED, "#3158c4", null);
+                ModuleShape.LIQUID, FinderShape.ROUNDED, "#3158c4", null, null);
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
                 service.render(request(data, style), QrFormat.PNG)));
@@ -159,8 +162,8 @@ class QrCodeServiceTest {
     void theLiquidCodeWithALogoStillDecodes() throws IOException {
         String data = "https://example.com/liquid?logo=1";
         QrStyle style = new QrStyle(600, 4, ErrorCorrection.HIGH, "#101820", "#ffffff",
-                ModuleShape.LIQUID, FinderShape.ROUNDED, "#3158c4",
-                new QrLogo(solidLogo(new Color(0xcc, 0x22, 0x22)), 18, 8, "#ffffff", 25));
+                ModuleShape.LIQUID, FinderShape.ROUNDED, "#3158c4", null,
+                new QrLogo(solidPng(new Color(0xcc, 0x22, 0x22)), 18, 8, "#ffffff", 25));
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
                 service.render(request(data, style), QrFormat.PNG)));
@@ -172,7 +175,7 @@ class QrCodeServiceTest {
     void theStarCodeWithDiamondEyesStillDecodes() throws IOException {
         String data = "https://example.com/star?diamond=1";
         QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
-                ModuleShape.STAR, FinderShape.DIAMOND, "#7c3aed", null);
+                ModuleShape.STAR, FinderShape.DIAMOND, "#7c3aed", null, null);
 
         BufferedImage image = ImageIO.read(new ByteArrayInputStream(
                 service.render(request(data, style), QrFormat.PNG)));
@@ -198,8 +201,112 @@ class QrCodeServiceTest {
     }
 
     @Test
+    void fillsTheEyesWithFinderArtwork() throws IOException {
+        QrStyle style = new QrStyle(512, 4, ErrorCorrection.MEDIUM, "#101820", "#ffffff",
+                ModuleShape.SQUARE, FinderShape.CUSTOM, "#101820",
+                new QrFinderArtwork(solidPng(new Color(0xcc, 0x22, 0x22))), null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request("artwork", style), QrFormat.PNG)));
+
+        long red = countPixels(image, 0, 0, image.getWidth() / 3, image.getHeight() / 3,
+                argb -> {
+                    Color color = new Color(argb);
+                    return color.getRed() > 150 && color.getGreen() < 100 && color.getBlue() < 100;
+                });
+        assertThat(red).isPositive();
+    }
+
+    @Test
+    void lightFinderArtworkIsDarkenedSoTheRingsStayVisible() throws IOException {
+        // The modules and the corner colour are white too, so any dark pixel in the top-left
+        // quadrant can only come from the adjusted artwork.
+        QrStyle style = new QrStyle(512, 4, ErrorCorrection.MEDIUM, "#ffffff", "#ffffff",
+                ModuleShape.SQUARE, FinderShape.CUSTOM, "#ffffff",
+                new QrFinderArtwork(solidPng(Color.WHITE)), null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request("artwork", style), QrFormat.PNG)));
+
+        long dark = countPixels(image, 0, 0, image.getWidth() / 3, image.getHeight() / 3,
+                argb -> {
+                    Color color = new Color(argb);
+                    return color.getRed() < 160 && color.getGreen() < 160 && color.getBlue() < 160;
+                });
+        assertThat(dark).isPositive();
+    }
+
+    @Test
+    void transparentFinderArtworkFallsBackToTheCornerColour() throws IOException {
+        QrStyle style = new QrStyle(512, 4, ErrorCorrection.MEDIUM, "#101820", "#ffffff",
+                ModuleShape.SQUARE, FinderShape.CUSTOM, "#cc2222",
+                new QrFinderArtwork(transparentPng()), null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request("artwork", style), QrFormat.PNG)));
+
+        long red = countPixels(image, 0, 0, image.getWidth() / 3, image.getHeight() / 3,
+                argb -> {
+                    Color color = new Color(argb);
+                    return color.getRed() > 150 && color.getGreen() < 100 && color.getBlue() < 100;
+                });
+        assertThat(red).isPositive();
+    }
+
+    @Test
+    void embedsFinderArtworkInSvg() throws IOException {
+        QrStyle style = new QrStyle(320, 4, ErrorCorrection.MEDIUM, "#101820", "#ffffff",
+                ModuleShape.SQUARE, FinderShape.CUSTOM, "#101820",
+                new QrFinderArtwork(solidPng(new Color(0x22, 0x88, 0x44))), null);
+
+        String svg = new String(service.render(request("artwork", style), QrFormat.SVG),
+                StandardCharsets.UTF_8);
+
+        assertThat(svg).contains("clip-path=\"url(#finder-outer)\"");
+        assertThat(svg).contains("clip-path=\"url(#finder-centre)\"");
+        assertThat(svg).contains("<image");
+        assertThat(svg).contains("data:image/png;base64,");
+    }
+
+    @Test
+    void theCustomFinderArtworkCodeStillDecodes() throws IOException {
+        String data = "https://example.com/artwork?eyes=1";
+        QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
+                ModuleShape.ROUNDED, FinderShape.CUSTOM, "#101820",
+                new QrFinderArtwork(stripedPng(new Color(0x2a, 0x5d, 0xb0), new Color(0x6d, 0x28, 0x8f))),
+                null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request(data, style), QrFormat.PNG)));
+
+        assertThat(decode(image)).isEqualTo(data);
+    }
+
+    @Test
+    void aCustomFinderWithoutArtworkFallsBackToSquare() throws IOException {
+        String data = "https://example.com/artwork?none=1";
+        QrStyle style = new QrStyle(512, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
+                ModuleShape.ROUNDED, FinderShape.CUSTOM, "#3158c4", null, null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request(data, style), QrFormat.PNG)));
+
+        assertThat(decode(image)).isEqualTo(data);
+    }
+
+    @Test
+    void rejectsFinderArtworkThatIsNotADataUrl() {
+        QrStyle style = new QrStyle(256, 4, ErrorCorrection.MEDIUM, null, null, null,
+                FinderShape.CUSTOM, null, new QrFinderArtwork("not-a-data-url"), null);
+
+        assertThatThrownBy(() -> service.render(request("artwork", style), QrFormat.PNG))
+                .isInstanceOf(FinderArtworkException.class)
+                .hasMessageContaining("style.finderArtwork.dataUrl");
+    }
+
+    @Test
     void rejectsALogoThatIsNotADataUrl() {
-        QrStyle style = new QrStyle(256, 4, ErrorCorrection.HIGH, null, null, null, null, null,
+        QrStyle style = new QrStyle(256, 4, ErrorCorrection.HIGH, null, null, null, null, null, null,
                 new QrLogo("not-a-data-url", null, null, null, null));
 
         assertThatThrownBy(() -> service.render(request("logo", style), QrFormat.PNG))
@@ -210,7 +317,7 @@ class QrCodeServiceTest {
     @Test
     void rejectsALogoThatIsNotAnImage() {
         String dataUrl = "data:image/png;base64," + Base64.getEncoder().encodeToString("nope".getBytes(StandardCharsets.UTF_8));
-        QrStyle style = new QrStyle(256, 4, ErrorCorrection.HIGH, null, null, null, null, null,
+        QrStyle style = new QrStyle(256, 4, ErrorCorrection.HIGH, null, null, null, null, null, null,
                 new QrLogo(dataUrl, null, null, null, null));
 
         assertThatThrownBy(() -> service.render(request("logo", style), QrFormat.PNG))
@@ -227,15 +334,29 @@ class QrCodeServiceTest {
                 .hasMessageContaining("too long");
     }
 
+    private static long countPixels(
+            BufferedImage image, int x, int y, int width, int height, IntPredicate matches) {
+
+        long count = 0;
+        for (int row = y; row < y + height; row++) {
+            for (int column = x; column < x + width; column++) {
+                if (matches.test(image.getRGB(column, row))) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
     private static QrCodeRequest request(String data, QrStyle style) {
         return new QrCodeRequest(data, style);
     }
 
     private static QrStyle style(int size) {
-        return new QrStyle(size, 4, ErrorCorrection.MEDIUM, null, null, null, null, null, null);
+        return new QrStyle(size, 4, ErrorCorrection.MEDIUM, null, null, null, null, null, null, null);
     }
 
-    private static String solidLogo(Color color) throws IOException {
+    private static String solidPng(Color color) throws IOException {
         BufferedImage image = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = image.createGraphics();
         try {
@@ -244,6 +365,28 @@ class QrCodeServiceTest {
         } finally {
             graphics.dispose();
         }
+        return dataUrl(image);
+    }
+
+    private static String transparentPng() throws IOException {
+        return dataUrl(new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB));
+    }
+
+    private static String stripedPng(Color first, Color second) throws IOException {
+        BufferedImage image = new BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        try {
+            for (int x = 0; x < 40; x += 8) {
+                graphics.setColor((x / 8) % 2 == 0 ? first : second);
+                graphics.fillRect(x, 0, 8, 40);
+            }
+        } finally {
+            graphics.dispose();
+        }
+        return dataUrl(image);
+    }
+
+    private static String dataUrl(BufferedImage image) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ImageIO.write(image, "png", out);
         return "data:image/png;base64," + Base64.getEncoder().encodeToString(out.toByteArray());

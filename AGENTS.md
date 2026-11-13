@@ -32,6 +32,10 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - `LIQUID` modules are a rounded square plus full-height/full-width bridges to dark neighbours on
   the right and below. Finder cells count as light for those bridges so the connection never
   reaches into an eye drawn afterwards. Keep the geometry identical in both renderers.
+- A `CUSTOM` finder fills the standard square ring and centre with the artwork and leaves the
+  one-module gap in the background colour, so the 1:1:3:1:1 structure survives. Artwork luminance
+  is clamped against the background before drawing; the SVG renderer embeds that adjusted PNG,
+  not the original data URL, so both formats show the same pixels.
 
 ## Short links
 

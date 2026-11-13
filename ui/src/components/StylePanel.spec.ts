@@ -34,6 +34,7 @@ function freshStyle(): QrStyle {
     moduleShape: 'ROUNDED',
     finderShape: 'ROUNDED',
     finderColor: '#3158c4',
+    finderArtwork: null,
     logo: null,
   }
 }
@@ -97,6 +98,38 @@ describe('StylePanel', () => {
     expect(style.finderShape).toBe('CIRCLE')
     expect(style.finderColor).toBe('#0f766e')
     expect(liquid.classList.contains('active')).toBe(true)
+  })
+
+  test('shows the artwork uploader only for the custom corner shape', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    expect(container.querySelector('input[type="file"]')).toBeNull()
+
+    buttonIn(container, 'Corner pattern shape', 'Custom').click()
+    await nextTick()
+
+    expect(style.finderShape).toBe('CUSTOM')
+    expect(container.querySelector('input[type="file"]')).not.toBeNull()
+    expect(container.textContent).toContain('Corner artwork')
+  })
+
+  test('removing corner artwork clears it from the style', async () => {
+    const style = reactive(freshStyle())
+    style.finderShape = 'CUSTOM'
+    style.finderArtwork = { dataUrl: 'data:image/png;base64,AAAA' }
+    const container = mount(style)
+
+    const remove = [...container.querySelectorAll('button')].find(
+      (button) => button.textContent?.trim() === 'Remove',
+    )
+    if (!(remove instanceof HTMLButtonElement)) {
+      throw new Error('No Remove button')
+    }
+    remove.click()
+    await nextTick()
+
+    expect(style.finderArtwork).toBeNull()
   })
 
   test('a preset updates every colour and shape it owns', async () => {

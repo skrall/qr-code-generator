@@ -13,5 +13,13 @@ public enum FinderShape {
     /** Rounded on two opposite corners, square on the other two. */
     LEAF,
     /** A square rotated a quarter turn, inscribed in the finder's footprint. */
-    DIAMOND
+    DIAMOND,
+    /**
+     * The standard square rings filled with the supplied artwork.
+     *
+     * <p>The ring and centre stay in place; only the colour inside them comes from the image.
+     * That keeps the 1:1:3:1:1 structure a reader looks for. Without artwork this falls back to
+     * {@link #SQUARE}.
+     */
+    CUSTOM
 }

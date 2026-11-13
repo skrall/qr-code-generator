@@ -4,6 +4,7 @@ import com.google.zxing.common.BitMatrix;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import org.skrall.qrcode.model.FinderShape;
 import org.springframework.stereotype.Component;
 
 /**
@@ -40,6 +41,9 @@ public class SvgQrRenderer {
                 .append("\" viewBox=\"0 0 ").append(size).append(' ').append(size)
                 .append("\" role=\"img\">\n");
         svg.append("  <title>QR code</title>\n");
+        if (options.finderShape() == FinderShape.CUSTOM && options.finderArtwork() != null) {
+            appendFinderClipPaths(svg, scale);
+        }
         svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
                 .append("\" fill=\"").append(RenderOptions.hex(options.background())).append("\"/>\n");
 
@@ -200,7 +204,66 @@ public class SvgQrRenderer {
                 appendPath(svg, diamondPath(x, y, side, scale), background);
                 appendPath(svg, diamondPath(x, y, side, 2 * scale), foreground);
             }
+            case CUSTOM -> appendCustomEye(svg, x, y, scale, options);
         }
+    }
+
+    /**
+     * Clip paths for a custom eye, in the local coordinates of its translated group.
+     *
+     * <p>Defined once per document: every eye uses the same seven-module geometry, and the group
+     * transform moves the clip paths with it.
+     */
+    private static void appendFinderClipPaths(StringBuilder svg, double scale) {
+        double side = FINDER * scale;
+        svg.append("  <defs>\n");
+        svg.append("    <clipPath id=\"finder-outer\"><rect x=\"0\" y=\"0\" width=\"")
+                .append(num(side)).append("\" height=\"").append(num(side))
+                .append("\"/></clipPath>\n");
+        svg.append("    <clipPath id=\"finder-centre\"><rect x=\"").append(num(2 * scale))
+                .append("\" y=\"").append(num(2 * scale))
+                .append("\" width=\"").append(num(3 * scale))
+                .append("\" height=\"").append(num(3 * scale))
+                .append("\"/></clipPath>\n");
+        svg.append("  </defs>\n");
+    }
+
+    /**
+     * The standard square eye with the artwork filling its two dark regions.
+     *
+     * <p>Mirrors {@link PngQrRenderer}: the outer square and the centre are filled with the
+     * artwork, then the one-module gap is painted back in the background colour. The ring and
+     * centre are always present, so the 1:1:3:1:1 structure survives whatever the image contains.
+     * The artwork was already flattened over {@code finderColor}, so transparent pixels are that
+     * colour.
+     */
+    private static void appendCustomEye(
+            StringBuilder svg, double x, double y, double scale, RenderOptions options) {
+
+        FinderArtworkImage artwork = options.finderArtwork();
+        if (artwork == null) {
+            // RenderOptions already falls back to SQUARE; this only guards a direct caller.
+            return;
+        }
+
+        double side = FINDER * scale;
+        svg.append("  <g transform=\"translate(").append(num(x)).append(' ').append(num(y))
+                .append(")\">\n");
+        appendArtworkImage(svg, artwork, side, "finder-outer");
+        appendRect(svg, scale, scale, side - 2 * scale, 0, RenderOptions.hex(options.background()));
+        appendArtworkImage(svg, artwork, side, "finder-centre");
+        svg.append("  </g>\n");
+    }
+
+    /** The adjusted artwork, embedded as a PNG so both formats show the same pixels. */
+    private static void appendArtworkImage(
+            StringBuilder svg, FinderArtworkImage artwork, double side, String clipId) {
+
+        svg.append("    <image x=\"0\" y=\"0\" width=\"").append(num(side))
+                .append("\" height=\"").append(num(side))
+                .append("\" preserveAspectRatio=\"xMidYMid meet\" clip-path=\"url(#")
+                .append(clipId).append(")\" href=\"")
+                .append(attribute(artwork.dataUrl())).append("\"/>\n");
     }
 
     /** Mirrors {@link PngQrRenderer}'s leaf: rounded top-left and bottom-right corners. */

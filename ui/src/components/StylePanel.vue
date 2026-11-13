@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ErrorCorrection, FinderShape, ModuleShape, QrStyle } from '../api/client'
+import FinderArtworkPanel from './FinderArtworkPanel.vue'
 
 /**
  * The prop is deliberately not called `style`.
@@ -92,6 +93,7 @@ const finderShapes: readonly { value: FinderShape; label: string }[] = [
   { value: 'CIRCLE', label: 'Circle' },
   { value: 'LEAF', label: 'Leaf' },
   { value: 'DIAMOND', label: 'Diamond' },
+  { value: 'CUSTOM', label: 'Custom' },
 ]
 
 const errorCorrections: readonly { value: ErrorCorrection; label: string }[] = [
@@ -167,6 +169,15 @@ function isActive(preset: Preset): boolean {
           {{ shape.label }}
         </button>
       </div>
+    </div>
+
+    <div v-if="qrStyle.finderShape === 'CUSTOM'" class="control">
+      <span class="control-label">Corner artwork</span>
+      <FinderArtworkPanel v-model="qrStyle.finderArtwork" />
+      <p class="field-help">
+        The artwork fills the corner rings; the light gap stays clear so the code remains
+        scannable.
+      </p>
     </div>
 
     <div class="control-grid">

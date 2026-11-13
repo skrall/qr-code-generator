@@ -6,7 +6,7 @@ by the same process.
 
 - **Shaped modules** — squares, rounded squares, dots, four-point stars or connected liquid
   modules.
-- **Shaped corner patterns** — square, rounded, circular, leaf or diamond finder patterns,
+- **Shaped corner patterns** — square, rounded, circular, leaf, diamond or your own artwork,
   drawn separately so the outer ring, the gap and the centre stay concentric.
 - **Logos** — drop in a PNG, JPEG or GIF and it is centred on a light plate. The plate's size,
   padding, roundness and colour are adjustable.
@@ -111,8 +111,9 @@ black-on-white code.
 | `foreground`      | `#rrggbb`                     | `#000000`    |
 | `background`      | `#rrggbb`                     | `#ffffff`    |
 | `moduleShape`     | `SQUARE`, `ROUNDED`, `DOTS`, `STAR`, `LIQUID` | `SQUARE` |
-| `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND` | `SQUARE` |
+| `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND`, `CUSTOM` | `SQUARE` |
 | `finderColor`     | `#rrggbb`                     | `foreground` |
+| `finderArtwork`   | an image data URL, used when `finderShape` is `CUSTOM` | none |
 
 ### Logo
 
@@ -146,6 +147,29 @@ everything needed to reproduce its output.
 PNG, JPEG and GIF are accepted, up to 2 MB decoded, 4096 px on either side and 16 megapixels in
 total. A logo hides part of the code, so `HIGH` error correction is the sensible companion; the UI
 offers to switch when one is added.
+
+### Finder artwork
+
+Set `finderShape` to `CUSTOM` and send `finderArtwork` to fill the three finder patterns with an
+image. The standard ring and centre stay in place and the one-module gap is left in the background
+colour, so the code keeps the 1:1:3:1:1 structure a reader looks for; only the colour inside the
+dark rings comes from the image. `finderColor` is the fallback for transparent pixels.
+
+```json
+{
+  "data": "https://example.com",
+  "style": {
+    "finderShape": "CUSTOM",
+    "finderArtwork": {
+      "dataUrl": "data:image/png;base64,iVBORw0KGgo..."
+    }
+  }
+}
+```
+
+The same PNG, JPEG and GIF limits as a logo apply. Artwork is adjusted so its luminance stays at
+least 96/255 away from the background colour, which keeps the rings readable even when the image
+is mostly light. `CUSTOM` without artwork falls back to a square eye.
 
 ### Errors
 
@@ -261,6 +285,11 @@ whole shapes afterwards, because a per-module shape cannot keep their three ring
 right and below. The bridge spans the full shared edge, so a run of modules becomes one rounded
 bar rather than a chain of circles joined by a narrow neck. Finder cells count as light for those
 bridges, which keeps the connection from reaching into an eye that is drawn afterwards.
+
+A `CUSTOM` eye fills the standard square ring and centre with the artwork, then paints the gap
+back in the background colour. The artwork is adjusted against that background before it is drawn,
+so a light image cannot erase the rings, and the SVG renderer embeds the adjusted PNG rather than
+the original data URL. Both formats therefore show the same pixels.
 
 ## Notes
 

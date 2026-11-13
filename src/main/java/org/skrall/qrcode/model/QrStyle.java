@@ -17,6 +17,7 @@ import jakarta.validation.constraints.Pattern;
  * @param moduleShape     the shape of a data module, default SQUARE
  * @param finderShape     the shape of the three corner patterns, default SQUARE
  * @param finderColor     the corner patterns' colour, default the foreground colour
+ * @param finderArtwork   an optional image that fills the corner rings when the shape is CUSTOM
  * @param logo            an optional logo to place in the middle
  */
 public record QrStyle(
@@ -44,8 +45,12 @@ public record QrStyle(
         String finderColor,
 
         @Valid
+        QrFinderArtwork finderArtwork,
+
+        @Valid
         QrLogo logo) {
 
     /** A style with every field absent, used to resolve defaults. */
-    public static final QrStyle EMPTY = new QrStyle(null, null, null, null, null, null, null, null, null);
+    public static final QrStyle EMPTY =
+            new QrStyle(null, null, null, null, null, null, null, null, null, null);
 }
