@@ -3,6 +3,7 @@ import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import { renderQrCode, type QrFormat, type QrStyle, type ShortLink } from './api/client'
 import ContentForm from './components/ContentForm.vue'
 import LinksView from './components/LinksView.vue'
+import FramePanel from './components/FramePanel.vue'
 import LogoPanel from './components/LogoPanel.vue'
 import QrPreview from './components/QrPreview.vue'
 import ShortLinkForm from './components/ShortLinkForm.vue'
@@ -34,6 +35,7 @@ const style = reactive<QrStyle>({
   finderColor: '#3158c4',
   finderArtwork: null,
   logo: null,
+  frame: null,
 })
 
 /**
@@ -254,6 +256,11 @@ onUnmounted(() => {
             A logo sits on a plate in the middle and hides part of the code; high error correction
             keeps the rest recoverable.
           </p>
+
+          <hr />
+
+          <h2>Frame</h2>
+          <FramePanel v-model="style.frame" />
         </div>
       </section>
 

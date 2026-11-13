@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.skrall.qrcode.BackgroundImageException;
 import org.skrall.qrcode.FinderArtworkException;
+import org.skrall.qrcode.FrameException;
 import org.skrall.qrcode.GradientException;
 import org.skrall.qrcode.LogoException;
 import org.skrall.qrcode.QrEncodingException;
@@ -24,8 +25,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>Boot answers a body that fails its constraints with a detail of "Invalid request content."
  * and discards the constraint messages, which are the only part a caller can act on. This puts
  * them back, and gives the domain failures — an unusable logo, finder artwork or background
- * image, a gradient that would erase part of the code, and a payload that does not fit — the
- * same shape.
+ * image, a gradient that would erase part of the code, a frame that cannot be drawn, and a
+ * payload that does not fit — the same shape.
  *
  * <p>The {@code errors} property names the field and the message but deliberately not the
  * rejected value: a logo is megabytes of base64, and echoing it back would make the error
@@ -66,6 +67,7 @@ public class ValidationProblemDetailAdvice {
         FinderArtworkException.class,
         BackgroundImageException.class,
         GradientException.class,
+        FrameException.class,
         QrEncodingException.class
     })
     public ProblemDetail onUnrenderable(RuntimeException e) {

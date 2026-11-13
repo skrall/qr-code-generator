@@ -25,6 +25,7 @@ import org.skrall.qrcode.model.QrStyle;
  * @param finderColor     the corner patterns' colour
  * @param logo            the decoded logo, or {@code null} for none
  * @param finderArtwork   the decoded artwork that fills a {@link FinderShape#CUSTOM} eye
+ * @param frame           the laid-out card around the code, or {@code null} for none
  */
 public record RenderOptions(
         int size,
@@ -38,7 +39,8 @@ public record RenderOptions(
         FinderShape finderShape,
         Color finderColor,
         LogoImage logo,
-        FinderArtworkImage finderArtwork) {
+        FinderArtworkImage finderArtwork,
+        Frame frame) {
 
     public static final int DEFAULT_SIZE = 512;
     public static final int DEFAULT_MARGIN = 4;
@@ -74,6 +76,7 @@ public record RenderOptions(
         }
         BackgroundImage backgroundImage = BackgroundImage.decode(
                 source.backgroundImage(), moduleInk, background, inks, size);
+        Frame frame = Frame.from(source.frame(), size, background, moduleInk, inks);
 
         return new RenderOptions(
                 size,
@@ -87,7 +90,8 @@ public record RenderOptions(
                 finderShape,
                 finderColor,
                 logo,
-                finderArtwork);
+                finderArtwork,
+                frame);
     }
 
     private static int clamp(Integer value, int min, int max, int fallback) {
@@ -97,7 +101,7 @@ public record RenderOptions(
         return Math.max(min, Math.min(max, value));
     }
 
-    private static Color parse(String hex, Color fallback) {
+    static Color parse(String hex, Color fallback) {
         if (hex == null || hex.length() != 7 || hex.charAt(0) != '#') {
             return fallback;
         }
@@ -106,6 +110,16 @@ public record RenderOptions(
         } catch (NumberFormatException e) {
             return fallback;
         }
+    }
+
+    /** The image's width: the code's side, or the whole card when framed. */
+    public int width() {
+        return frame == null ? size : frame.width();
+    }
+
+    /** The image's height: the code's side, or the whole card when framed. */
+    public int height() {
+        return frame == null ? size : frame.height();
     }
 
     /** Whether the eyes are filled with the gradient rather than {@link #finderColor()}. */

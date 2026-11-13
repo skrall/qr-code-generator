@@ -46,6 +46,7 @@ function freshStyle(): QrStyle {
     finderColor: '#3158c4',
     finderArtwork: null,
     logo: null,
+    frame: null,
   }
 }
 

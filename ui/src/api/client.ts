@@ -35,6 +35,25 @@ export interface QrBackgroundImage {
   dataUrl: string
 }
 
+/**
+ * A card around the code. Lengths are percentages of the code's width; the image grows around
+ * the code rather than the code shrinking. A blank title or caption is left out.
+ */
+export interface QrFrame {
+  title: string
+  caption: string
+  background: string
+  textColor: string
+  borderColor: string
+  titleSizePercent: number
+  captionSizePercent: number
+  borderPercent: number
+  radiusPercent: number
+  paddingPercent: number
+  marginPercent: number
+  bleedPercent: number
+}
+
 export interface QrLogo {
   dataUrl: string
   sizePercent: number
@@ -56,6 +75,7 @@ export interface QrStyle {
   finderColor: string
   finderArtwork: QrFinderArtwork | null
   logo: QrLogo | null
+  frame: QrFrame | null
 }
 
 export interface RenderRequest {
@@ -112,6 +132,7 @@ export async function renderQrCode(
           ? (request.style.finderArtwork ?? undefined)
           : undefined,
       logo: request.style.logo ?? undefined,
+      frame: request.style.frame ?? undefined,
     },
   }
 

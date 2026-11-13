@@ -39,6 +39,10 @@ public class QrCodeService {
         LogoImage logo = LogoImage.decode(style == null ? null : style.logo());
         RenderOptions options = RenderOptions.from(style, logo);
         BitMatrix matrix = encode(request.data(), options.errorCorrection());
+        if (options.frame() != null) {
+            // Only now is the module size known, which is what the quiet zone is measured in.
+            options.frame().requireQuietZone(matrix.getWidth(), options.size(), options.margin());
+        }
 
         return switch (format) {
             case PNG -> pngRenderer.render(matrix, options);

@@ -21,6 +21,8 @@ import jakarta.validation.constraints.Pattern;
  * @param finderColor     the corner patterns' colour, default the foreground colour
  * @param finderArtwork   an optional image that fills the corner rings when the shape is CUSTOM
  * @param logo            an optional logo to place in the middle
+ * @param frame           an optional card around the code, with a title, caption, border and
+ *                        bleed; it makes the image larger rather than the code smaller
  */
 public record QrStyle(
         @Min(value = 128, message = "style.size must be at least 128")
@@ -56,9 +58,12 @@ public record QrStyle(
         QrFinderArtwork finderArtwork,
 
         @Valid
-        QrLogo logo) {
+        QrLogo logo,
+
+        @Valid
+        QrFrame frame) {
 
     /** A style with every field absent, used to resolve defaults. */
     public static final QrStyle EMPTY =
-            new QrStyle(null, null, null, null, null, null, null, null, null, null, null, null);
+            new QrStyle(null, null, null, null, null, null, null, null, null, null, null, null, null);
 }

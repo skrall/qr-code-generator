@@ -12,6 +12,8 @@ by the same process.
   padding, roundness and colour are adjustable.
 - **Gradients** — linear or radial, across the modules and optionally the corner patterns.
   Colours that would fade into the background are rejected rather than rendered.
+- **Frames** — put the code on a card with a title, a caption, a border and print bleed. Text is
+  set in a bundled font, so a PNG and an SVG of the same card match.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
@@ -120,6 +122,7 @@ black-on-white code.
 | `finderShape`     | `SQUARE`, `ROUNDED`, `CIRCLE`, `LEAF`, `DIAMOND`, `CUSTOM` | `SQUARE` |
 | `finderColor`     | `#rrggbb`                     | `foreground` |
 | `finderArtwork`   | an image data URL, used when `finderShape` is `CUSTOM` | none |
+| `frame`           | see below; a card around the code              | none |
 
 ### Logo
 
@@ -242,6 +245,67 @@ into, so the request is rejected with a 400 when:
 
 Checking the two stops is enough. Both formats blend them linearly in sRGB, and luminance is a
 linear function of the sRGB channels, so every colour along the gradient lies between the stops.
+
+### Frame
+
+Send `frame` to put the code on a card. `size` is still the code's side: the frame makes the image
+larger rather than the code smaller.
+
+```json
+{
+  "data": "https://example.com/menu",
+  "style": {
+    "size": 600,
+    "frame": {
+      "title": "Scan me",
+      "caption": "Menu, hours and reservations",
+      "borderPercent": 2,
+      "bleedPercent": 5
+    }
+  }
+}
+```
+
+| Field                | Values                                        | Default            |
+| -------------------- | --------------------------------------------- | ------------------ |
+| `title`              | up to 60 characters, bold, above the code     | none               |
+| `caption`            | up to 120 characters, below the code          | none               |
+| `background`         | `#rrggbb`, the card and the bleed             | style `background` |
+| `textColor`          | `#rrggbb`                                     | the module colour  |
+| `borderColor`        | `#rrggbb`                                     | `textColor`        |
+| `titleSizePercent`   | 3–20                                          | 9                  |
+| `captionSizePercent` | 2–15                                          | 5                  |
+| `borderPercent`      | 0–10, 0 for no border                         | 2                  |
+| `radiusPercent`      | 0–25, the border's corner radius              | 4                  |
+| `paddingPercent`     | 0–30, between the border and the code         | 6                  |
+| `marginPercent`      | 0–20, between the trim line and the border    | 0                  |
+| `bleedPercent`       | 0–20, card colour beyond the trim line        | 0                  |
+
+Every length is a percentage of the code's side, so a card keeps its proportions at any `size`.
+From the outside in: bleed, margin, border, padding, then the code, following CSS's box model with
+bleed outside it. For print, bleed is the part a printer trims off. As an example, a 50 mm code
+with a 3 mm bleed needs `bleedPercent` 6. Give the border some `marginPercent` too, so an uneven
+cut does not thin one side of it.
+
+Text wraps to the code's width and is centred on it; a newline starts a new line. It is set in
+Inter (Bold for the title, Regular for the caption), which ships with the application under the
+SIL Open Font License. Both formats draw the same glyph outlines, so the SVG has no `<text>` and
+depends on no installed font. Its `<title>` and `<desc>` carry the text for screen readers.
+
+A frame is rejected with a 400 when:
+
+- the text has a character Inter cannot draw, such as an emoji or CJK, rather than drawing an
+  empty box;
+- it leaves less than 2 modules of clear space around the code. The code's `margin` always
+  counts; the frame's padding counts too when the card contrasts with the modules the way the
+  code's background does. A dark card next to a light code is an edge in its own right, so then
+  only `margin` counts;
+- the framed image would be more than 6144 pixels on a side, or more than 1.5 times the pixels of
+  the largest unframed code.
+
+The QR specification asks for 4 modules of quiet zone, which the default `margin` gives. The
+frame check's 2 is a floor: with a heavy border against the code, ZXing fails to read a clean
+render at 0 modules and reads it at 1, and a camera needs some headroom over that.
 
 ### Errors
 
@@ -372,8 +436,15 @@ A gradient's geometry, the line or the circle, is computed once in `Gradient`. `
 builds a Java2D `LinearGradientPaint` or `RadialGradientPaint` from it and `SvgQrRenderer` writes
 the same numbers into a `userSpaceOnUse` gradient element, so the two formats match.
 
+A frame is laid out once, in `Frame`, with every length rounded to whole pixels so the code lands
+on the same grid as an unframed one. The text is turned into glyph outlines there, with the
+bundled font, line breaking and kerning. Both renderers fill the card, the border ring and those
+outlines, then draw the code translated into place. The gradient and the custom-eye clip paths
+are in user space, so they move with the code in both formats.
+
 ## Notes
 
+- The frame's font is Inter, bundled under `src/main/resources/fonts` with its licence.
 - No upload storage: a logo, finder artwork or background image lives only in the request that
   carries it. Short links are the one thing stored, in the database, because they have to outlive
   a restart.
