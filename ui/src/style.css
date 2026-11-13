@@ -12,6 +12,10 @@
   --accent-contrast: #ffffff;
   --danger: #b3261e;
   --danger-soft: #fbeae9;
+  --success: #1f7a3d;
+  --success-soft: #e6f4ea;
+  --warning: #8a5a00;
+  --warning-soft: #fdf3dc;
   --checker: #e4e9f1;
   --radius: 8px;
   --radius-lg: 14px;
@@ -37,6 +41,10 @@
     --accent-contrast: #0a0f16;
     --danger: #f08b84;
     --danger-soft: #3a2224;
+    --success: #7fd19a;
+    --success-soft: #17301f;
+    --warning: #f0c060;
+    --warning-soft: #352a12;
     --checker: #1d2632;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.28);
   }
@@ -640,6 +648,89 @@ input[type='color'] {
 
 .notice button {
   align-self: flex-start;
+}
+
+/* Scan check -------------------------------------------------------------- */
+
+.scan-status {
+  --tone: var(--text-muted);
+  --tone-soft: var(--surface-sunken);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--tone);
+  border-radius: var(--radius);
+  background: var(--tone-soft);
+  font-size: 13px;
+  transition: opacity 120ms ease;
+}
+
+.scan-pass {
+  --tone: var(--success);
+  --tone-soft: var(--success-soft);
+}
+
+.scan-marginal {
+  --tone: var(--warning);
+  --tone-soft: var(--warning-soft);
+}
+
+.scan-fail {
+  --tone: var(--danger);
+  --tone-soft: var(--danger-soft);
+}
+
+.scan-stale {
+  opacity: 0.6;
+}
+
+.scan-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+}
+
+.scan-verdict strong {
+  color: var(--tone);
+}
+
+.scan-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.scan-meta {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.scan-trials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.scan-trials .failed {
+  color: var(--tone);
+}
+
+.scan-hints {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
 }
 
 .error {

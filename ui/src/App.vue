@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref, watch } from 'vue'
-import { renderQrCode, type QrFormat, type QrStyle, type ShortLink } from './api/client'
+import {
+  checkQrCode,
+  renderQrCode,
+  type QrFormat,
+  type QrStyle,
+  type ScanCheck,
+  type ShortLink,
+} from './api/client'
 import ContentForm from './components/ContentForm.vue'
 import LinksView from './components/LinksView.vue'
 import FramePanel from './components/FramePanel.vue'
 import LogoPanel from './components/LogoPanel.vue'
 import QrPreview from './components/QrPreview.vue'
+import ScanStatus from './components/ScanStatus.vue'
 import ShortLinkForm from './components/ShortLinkForm.vue'
 import StylePanel from './components/StylePanel.vue'
 import type { PreviewState } from './preview'
@@ -87,6 +95,8 @@ function linkDraft(url: string): void {
 const previewUrl = ref('')
 const state = ref<PreviewState>('idle')
 const error = ref('')
+const scan = ref<ScanCheck | null>(null)
+const scanPending = ref(false)
 
 let controller: AbortController | null = null
 let timer: ReturnType<typeof setTimeout> | undefined
@@ -111,6 +121,8 @@ async function refresh(): Promise<void> {
     showUrl('')
     state.value = 'idle'
     error.value = ''
+    scan.value = null
+    scanPending.value = false
     return
   }
 
@@ -133,7 +145,34 @@ async function refresh(): Promise<void> {
     showUrl('')
     error.value = messageOf(cause)
     state.value = 'error'
+    scan.value = null
+    scanPending.value = false
+    return
   }
+
+  await refreshScan(current)
+}
+
+/**
+ * Checks the code the preview now shows. It runs after the render rather than beside it, so a
+ * rejected style is reported once, by the preview, and the image is never held up by the check.
+ */
+async function refreshScan(current: AbortController): Promise<void> {
+  scanPending.value = true
+  try {
+    const result = await checkQrCode({ data: payload.value, style }, current.signal)
+    if (current.signal.aborted) {
+      return
+    }
+    scan.value = result
+  } catch {
+    if (current.signal.aborted) {
+      return
+    }
+    // The check is advice. If it cannot run, saying nothing beats a verdict about an old image.
+    scan.value = null
+  }
+  scanPending.value = false
 }
 
 function schedule(): void {
@@ -281,6 +320,8 @@ onUnmounted(() => {
             "
             @download="download"
           />
+
+          <ScanStatus v-if="state !== 'error'" :check="scan" :pending="scanPending" />
 
           <div v-if="logoNeedsHigh" class="notice">
             <p>A logo covers part of the code. High error correction is recommended.</p>

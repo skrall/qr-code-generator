@@ -113,12 +113,28 @@ const SUPPORTED_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif'])
 /** Matches the server's decoded-size limit. */
 const MAX_IMAGE_BYTES = 2_000_000
 
-export async function renderQrCode(
-  request: RenderRequest,
-  format: QrFormat,
-  signal?: AbortSignal,
-): Promise<Blob> {
-  const body = {
+/** Whether the scan check expects phones to read the code. */
+export type ScanVerdict = 'PASS' | 'MARGINAL' | 'FAIL'
+
+/** One attempt to read the rendered code back. */
+export interface ScanTrial {
+  name: 'rendered' | 'small' | 'blurred'
+  description: string
+  decoded: boolean
+}
+
+/** The server's verdict on a rendered code, with style changes likely to help. */
+export interface ScanCheck {
+  verdict: ScanVerdict
+  version: number
+  modules: number
+  trials: ScanTrial[]
+  hints: string[]
+}
+
+/** The request document the render and check endpoints both take. */
+function requestBody(request: RenderRequest): string {
+  return JSON.stringify({
     data: request.data,
     // Absent images are omitted rather than sent as null, so the document matches the shape
     // the API documents. Artwork is only useful with the custom finder shape, so it is left
@@ -134,12 +150,18 @@ export async function renderQrCode(
       logo: request.style.logo ?? undefined,
       frame: request.style.frame ?? undefined,
     },
-  }
+  })
+}
 
+export async function renderQrCode(
+  request: RenderRequest,
+  format: QrFormat,
+  signal?: AbortSignal,
+): Promise<Blob> {
   const response = await fetch(`/api/qr-codes?format=${format}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: requestBody(request),
     signal,
   })
 
@@ -147,6 +169,21 @@ export async function renderQrCode(
     throw new Error(await problemDetail(response))
   }
   return response.blob()
+}
+
+/** Renders the code on the server and reads it back, as plain and as a phone might see it. */
+export async function checkQrCode(request: RenderRequest, signal?: AbortSignal): Promise<ScanCheck> {
+  const response = await fetch('/api/qr-codes/check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: requestBody(request),
+    signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as ScanCheck
 }
 
 /**

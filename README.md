@@ -22,6 +22,8 @@ by the same process.
   expiry, a searchable list and hit counts.
 - **PNG and SVG** — PNG for anything that needs a bitmap, SVG for print and for embedding the
   original logo without resampling.
+- **Scan check** — the preview renders the code again and reads it back, as drawn, shrunk and
+  blurred, and says whether phones should read it, with hints when they might not.
 - **Scannable** — the tests decode the rendered output with ZXing, including a rounded code with
   a logo and a dotted code with circular corner patterns.
 
@@ -307,6 +309,41 @@ The QR specification asks for 4 modules of quiet zone, which the default `margin
 frame check's 2 is a floor: with a heavy border against the code, ZXing fails to read a clean
 render at 0 modules and reads it at 1, and a camera needs some headroom over that.
 
+### Scan check
+
+`POST /api/qr-codes/check` takes the same document as the render endpoint and answers whether the
+result is likely to scan. It renders the PNG, then reads it with ZXing's quick reader three ways:
+
+| Trial      | Simulates                                                       |
+| ---------- | --------------------------------------------------------------- |
+| `rendered` | the image as drawn                                              |
+| `small`    | the code far from the camera: shrunk to 3 pixels per module     |
+| `blurred`  | a camera slightly out of focus: 4 pixels per module, then blurred |
+
+```json
+{
+  "verdict": "MARGINAL",
+  "version": 4,
+  "modules": 33,
+  "trials": [
+    { "name": "rendered", "description": "As rendered", "decoded": true },
+    { "name": "small", "description": "Small in the frame", "decoded": false },
+    { "name": "blurred", "description": "Slightly out of focus", "decoded": false }
+  ],
+  "hints": ["Readers find the code by its three corner patterns. Try square or rounded corner patterns."]
+}
+```
+
+`PASS` means every trial read the payload. `FAIL` means none did, even with ZXing's slower
+`TRY_HARDER` mode. Anything in between is `MARGINAL`, and so are two styles that read fine here
+but not everywhere: light modules on a dark background, which many scanner apps never look for,
+and an unframed code with less than 2 modules of quiet zone, which only reads because the image
+here sits on a blank canvas. The SVG has the same geometry as the PNG, so the verdict covers both.
+
+ZXing reports whether it decoded, never why it didn't. The hints come from the style instead (logo
+coverage against the error-correction level, contrast, quiet zone, density, module and corner
+shapes, a background image), most likely cause first, and only when the verdict is not a pass.
+
 ### Errors
 
 A rejected request is an RFC 9457 problem document. Constraint failures also carry an `errors`
@@ -395,6 +432,7 @@ that.
 src/main/java/org/skrall/qrcode/
 ├── model/          request DTOs and enums, with the validation constraints
 ├── service/        encoding: payload → ZXing BitMatrix
+├── check/          reads a rendered code back for the scan check
 ├── render/         matrix → PNG (Java2D) or SVG
 ├── link/           short link entity, repository and redirect resolution
 └── web/            the controllers, the error advice and the format converter
@@ -451,3 +489,4 @@ are in user space, so they move with the code in both formats.
 - The UI keeps each type's values separately, so switching from a vCard to a WiFi code and back
   does not discard what was typed.
 - The preview is debounced and cancels the previous request, so typing does not queue renders.
+  The scan check runs after each render, under the same cancellation.

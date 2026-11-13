@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import org.skrall.qrcode.model.QrCodeRequest;
 import org.skrall.qrcode.model.QrFormat;
+import org.skrall.qrcode.model.ScanCheckResponse;
 import org.skrall.qrcode.service.QrCodeService;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -56,5 +57,21 @@ public class QrCodeController {
                         "inline; filename=\"qr-code." + format.extension() + "\"")
                 .cacheControl(CacheControl.noStore())
                 .body(image);
+    }
+
+    @PostMapping(path = "/check", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Check that a QR code scans", description = """
+            Renders the code exactly as the render endpoint would, then reads it back: as
+            rendered, shrunk to a few pixels per module, and blurred. PASS means every attempt
+            recovered the payload, MARGINAL that some did, FAIL that none did. Hints suggest style
+            changes when the verdict is not a pass.
+            """)
+    @ApiResponse(responseCode = "200", description = "The verdict, the attempts and any hints")
+    @ApiResponse(responseCode = "400", description = "The payload or style was rejected",
+            content = @Content(mediaType = "application/problem+json"))
+    public ResponseEntity<ScanCheckResponse> check(@Valid @RequestBody QrCodeRequest request) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(service.check(request));
     }
 }
