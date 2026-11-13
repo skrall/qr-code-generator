@@ -29,6 +29,9 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - The quiet zone is applied in module units by the renderers, not by ZXing (`MARGIN=0`).
 - The three finder patterns are excluded from the module pass and drawn as whole shapes, so
   their rings stay concentric.
+- `LIQUID` modules are a rounded square plus full-height/full-width bridges to dark neighbours on
+  the right and below. Finder cells count as light for those bridges so the connection never
+  reaches into an eye drawn afterwards. Keep the geometry identical in both renderers.
 
 ## Short links
 

@@ -27,6 +27,14 @@ public class PngQrRenderer {
     /** The side of a finder pattern, in modules. */
     private static final int FINDER = 7;
 
+    /**
+     * Corner radius of a liquid module, as a fraction of the module's side.
+     *
+     * <p>Kept below a half so the centre of every module stays solid: a reader samples the centre,
+     * not the rounded edge.
+     */
+    private static final double LIQUID_RADIUS = 0.4;
+
     public byte[] render(BitMatrix matrix, RenderOptions options) {
         int dimension = matrix.getWidth();
         double scale = (double) options.size() / (dimension + options.margin() * 2);
@@ -44,7 +52,7 @@ public class PngQrRenderer {
             for (int row = 0; row < dimension; row++) {
                 for (int column = 0; column < dimension; column++) {
                     if (matrix.get(column, row) && !isFinder(row, column, dimension)) {
-                        drawModule(graphics, column, row, scale, options);
+                        drawModule(graphics, matrix, column, row, dimension, scale, options);
                     }
                 }
             }
@@ -79,11 +87,32 @@ public class PngQrRenderer {
                 || (row >= dimension - FINDER && column < FINDER);
     }
 
+    /**
+     * Whether a cell is a dark module outside the finder patterns.
+     *
+     * <p>Finder cells count as light so a liquid bridge never reaches into an eye. The eye is
+     * drawn afterwards, and its shape may not cover a protrusion from the module pass.
+     */
+    private static boolean isDark(BitMatrix matrix, int row, int column, int dimension) {
+        return row >= 0 && row < dimension
+                && column >= 0 && column < dimension
+                && matrix.get(column, row)
+                && !isFinder(row, column, dimension);
+    }
+
     private static double offset(int module, RenderOptions options, double scale) {
         return (module + options.margin()) * scale;
     }
 
-    private static void drawModule(Graphics2D graphics, int column, int row, double scale, RenderOptions options) {
+    private static void drawModule(
+            Graphics2D graphics,
+            BitMatrix matrix,
+            int column,
+            int row,
+            int dimension,
+            double scale,
+            RenderOptions options) {
+
         double x = (column + options.margin()) * scale;
         double y = (row + options.margin()) * scale;
         switch (options.moduleShape()) {
@@ -103,6 +132,35 @@ public class PngQrRenderer {
                 graphics.fill(new Ellipse2D.Double(x + inset, y + inset, diameter, diameter));
             }
             case STAR -> graphics.fill(star(x, y, scale));
+            case LIQUID -> drawLiquidModule(graphics, matrix, column, row, dimension, x, y, scale);
+        }
+    }
+
+    /**
+     * A rounded module plus bridges to its right and lower neighbours.
+     *
+     * <p>Each bridge spans the full height (or width) of the shared edge and reaches a corner
+     * radius into both cells. That squares off the shared side, so a run of modules reads as one
+     * rounded bar instead of two circles joined by a narrow neck.
+     */
+    private static void drawLiquidModule(
+            Graphics2D graphics,
+            BitMatrix matrix,
+            int column,
+            int row,
+            int dimension,
+            double x,
+            double y,
+            double scale) {
+
+        double radius = scale * LIQUID_RADIUS;
+        graphics.fill(new RoundRectangle2D.Double(x, y, scale, scale, radius * 2, radius * 2));
+
+        if (isDark(matrix, row, column + 1, dimension)) {
+            graphics.fill(new Rectangle2D.Double(x + scale - radius, y, radius * 2, scale));
+        }
+        if (isDark(matrix, row + 1, column, dimension)) {
+            graphics.fill(new Rectangle2D.Double(x, y + scale - radius, scale, radius * 2));
         }
     }
 

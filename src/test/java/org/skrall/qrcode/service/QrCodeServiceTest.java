@@ -144,6 +144,31 @@ class QrCodeServiceTest {
     }
 
     @Test
+    void theLiquidCodeStillDecodes() throws IOException {
+        String data = "https://example.com/liquid?connected=modules";
+        QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",
+                ModuleShape.LIQUID, FinderShape.ROUNDED, "#3158c4", null);
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request(data, style), QrFormat.PNG)));
+
+        assertThat(decode(image)).isEqualTo(data);
+    }
+
+    @Test
+    void theLiquidCodeWithALogoStillDecodes() throws IOException {
+        String data = "https://example.com/liquid?logo=1";
+        QrStyle style = new QrStyle(600, 4, ErrorCorrection.HIGH, "#101820", "#ffffff",
+                ModuleShape.LIQUID, FinderShape.ROUNDED, "#3158c4",
+                new QrLogo(solidLogo(new Color(0xcc, 0x22, 0x22)), 18, 8, "#ffffff", 25));
+
+        BufferedImage image = ImageIO.read(new ByteArrayInputStream(
+                service.render(request(data, style), QrFormat.PNG)));
+
+        assertThat(decode(image)).isEqualTo(data);
+    }
+
+    @Test
     void theStarCodeWithDiamondEyesStillDecodes() throws IOException {
         String data = "https://example.com/star?diamond=1";
         QrStyle style = new QrStyle(600, 4, ErrorCorrection.QUARTILE, "#101820", "#ffffff",

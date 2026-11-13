@@ -67,6 +67,15 @@ const presets: readonly Preset[] = [
     background: '#ffffff',
     finderColor: '#7c3aed',
   },
+  {
+    id: 'liquid',
+    label: 'Liquid',
+    moduleShape: 'LIQUID',
+    finderShape: 'CIRCLE',
+    foreground: '#0f172a',
+    background: '#ffffff',
+    finderColor: '#0f766e',
+  },
 ]
 
 const moduleShapes: readonly { value: ModuleShape; label: string }[] = [
@@ -74,6 +83,7 @@ const moduleShapes: readonly { value: ModuleShape; label: string }[] = [
   { value: 'ROUNDED', label: 'Rounded' },
   { value: 'DOTS', label: 'Dots' },
   { value: 'STAR', label: 'Stars' },
+  { value: 'LIQUID', label: 'Liquid' },
 ]
 
 const finderShapes: readonly { value: FinderShape; label: string }[] = [

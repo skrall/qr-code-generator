@@ -76,6 +76,29 @@ describe('StylePanel', () => {
     expect(style.finderShape).toBe('DIAMOND')
   })
 
+  test('offers the liquid module shape and preset', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    buttonIn(container, 'Module shape', 'Liquid').click()
+    await nextTick()
+    expect(style.moduleShape).toBe('LIQUID')
+
+    const liquid = [...container.querySelectorAll('.preset')].find(
+      (button) => button.textContent?.trim() === 'Liquid',
+    )
+    if (!(liquid instanceof HTMLButtonElement)) {
+      throw new Error('No Liquid preset')
+    }
+    liquid.click()
+    await nextTick()
+
+    expect(style.moduleShape).toBe('LIQUID')
+    expect(style.finderShape).toBe('CIRCLE')
+    expect(style.finderColor).toBe('#0f766e')
+    expect(liquid.classList.contains('active')).toBe(true)
+  })
+
   test('a preset updates every colour and shape it owns', async () => {
     const style = reactive(freshStyle())
     const container = mount(style)
