@@ -2,6 +2,7 @@ package org.skrall.qrcode.render;
 
 import java.awt.Color;
 import java.util.DoubleSummaryStatistics;
+import org.skrall.qrcode.BackgroundImageException;
 import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.FinderShape;
 import org.skrall.qrcode.model.ModuleShape;
@@ -18,7 +19,9 @@ import org.skrall.qrcode.model.QrStyle;
  * @param errorCorrection the redundancy level
  * @param foreground      the data modules' colour when there is no gradient
  * @param gradient        the modules' gradient, and the eyes' when it says so, or {@code null}
- * @param background      the background and the eyes' inner gap
+ * @param background      the background and the eyes' inner gap; with a transparent background,
+ *                        the colour the code is designed to sit on, which the contrast checks
+ *                        and the scan check still use
  * @param backgroundImage the decoded image behind the code, or {@code null} for none
  * @param moduleShape     the shape of a data module
  * @param finderShape     the shape of the three corner patterns
@@ -26,6 +29,8 @@ import org.skrall.qrcode.model.QrStyle;
  * @param logo            the decoded logo, or {@code null} for none
  * @param finderArtwork   the decoded artwork that fills a {@link FinderShape#CUSTOM} eye
  * @param frame           the laid-out card around the code, or {@code null} for none
+ * @param transparentBackground whether the background, the eyes' inner gap and a frame's card are
+ *                        left unpainted rather than filled with {@code background}
  */
 public record RenderOptions(
         int size,
@@ -40,7 +45,8 @@ public record RenderOptions(
         Color finderColor,
         LogoImage logo,
         FinderArtworkImage finderArtwork,
-        Frame frame) {
+        Frame frame,
+        boolean transparentBackground) {
 
     public static final int DEFAULT_SIZE = 512;
     public static final int DEFAULT_MARGIN = 4;
@@ -51,6 +57,12 @@ public record RenderOptions(
         Color foreground = parse(source.foreground(), Color.BLACK);
         Color background = parse(source.background(), Color.WHITE);
         Color finderColor = parse(source.finderColor(), foreground);
+        boolean transparent = Boolean.TRUE.equals(source.transparentBackground());
+        if (transparent && source.backgroundImage() != null) {
+            throw new BackgroundImageException("style.backgroundImage cannot be combined with"
+                    + " style.transparentBackground: the image would fill the background that is"
+                    + " meant to be left transparent. Remove one of them.");
+        }
         Gradient gradient = Gradient.from(source.gradient(), background);
         FinderShape finderShape =
                 source.finderShape() == null ? FinderShape.SQUARE : source.finderShape();
@@ -76,7 +88,7 @@ public record RenderOptions(
         }
         BackgroundImage backgroundImage = BackgroundImage.decode(
                 source.backgroundImage(), moduleInk, background, inks, size);
-        Frame frame = Frame.from(source.frame(), size, background, moduleInk, inks);
+        Frame frame = Frame.from(source.frame(), size, background, moduleInk, inks, transparent);
 
         return new RenderOptions(
                 size,
@@ -91,7 +103,8 @@ public record RenderOptions(
                 finderColor,
                 logo,
                 finderArtwork,
-                frame);
+                frame,
+                transparent);
     }
 
     private static int clamp(Integer value, int min, int max, int fallback) {

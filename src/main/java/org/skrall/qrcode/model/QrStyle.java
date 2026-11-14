@@ -23,6 +23,9 @@ import jakarta.validation.constraints.Pattern;
  * @param logo            an optional logo to place in the middle
  * @param frame           an optional card around the code, with a title, caption, border and
  *                        bleed; it makes the image larger rather than the code smaller
+ * @param transparentBackground whether to leave the background unpainted, so the code can sit
+ *                        on existing artwork; default false. {@code background} is still the
+ *                        colour the code is designed to sit on, and every contrast check uses it
  */
 public record QrStyle(
         @Min(value = 128, message = "style.size must be at least 128")
@@ -61,9 +64,30 @@ public record QrStyle(
         QrLogo logo,
 
         @Valid
-        QrFrame frame) {
+        QrFrame frame,
+
+        Boolean transparentBackground) {
 
     /** A style with every field absent, used to resolve defaults. */
     public static final QrStyle EMPTY =
             new QrStyle(null, null, null, null, null, null, null, null, null, null, null, null, null);
+
+    /** A style with an opaque background: every field but {@code transparentBackground}. */
+    public QrStyle(
+            Integer size,
+            Integer margin,
+            ErrorCorrection errorCorrection,
+            String foreground,
+            QrGradient gradient,
+            String background,
+            QrBackgroundImage backgroundImage,
+            ModuleShape moduleShape,
+            FinderShape finderShape,
+            String finderColor,
+            QrFinderArtwork finderArtwork,
+            QrLogo logo,
+            QrFrame frame) {
+        this(size, margin, errorCorrection, foreground, gradient, background, backgroundImage,
+                moduleShape, finderShape, finderColor, finderArtwork, logo, frame, null);
+    }
 }

@@ -47,6 +47,7 @@ function freshStyle(): QrStyle {
     finderArtwork: null,
     logo: null,
     frame: null,
+    transparentBackground: false,
   }
 }
 
@@ -250,6 +251,41 @@ describe('StylePanel', () => {
     expect(style.background).toBe('#0f172a')
     expect(style.finderColor).toBe('#8ab4ff')
     expect(midnight.classList.contains('active')).toBe(true)
+  })
+
+  test('the transparent background checkbox toggles the flag', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    const toggle = container.querySelector('input[aria-label="Transparent background"]')
+    if (!(toggle instanceof HTMLInputElement)) {
+      throw new Error('No transparent background toggle')
+    }
+    expect(toggle.checked).toBe(false)
+
+    toggle.click()
+    await nextTick()
+    expect(style.transparentBackground).toBe(true)
+    expect(container.textContent).toContain('Only the code is drawn')
+
+    toggle.click()
+    await nextTick()
+    expect(style.transparentBackground).toBe(false)
+  })
+
+  test('a background image disables the transparent background', () => {
+    const style = reactive({
+      ...freshStyle(),
+      backgroundImage: { dataUrl: 'data:image/png;base64,AA==' },
+    })
+    const container = mount(style)
+
+    const toggle = container.querySelector('input[aria-label="Transparent background"]')
+    if (!(toggle instanceof HTMLInputElement)) {
+      throw new Error('No transparent background toggle')
+    }
+    expect(toggle.disabled).toBe(true)
+    expect(container.textContent).toContain('Remove the background image')
   })
 
   test('a range input writes back a number', async () => {

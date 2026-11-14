@@ -45,6 +45,43 @@ black-on-white code.
 | `finderColor`     | `#rrggbb`                     | `foreground` |
 | `finderArtwork`   | an image data URL, used when `finderShape` is `CUSTOM` | none |
 | `frame`           | see below; a card around the code              | none |
+| `transparentBackground` | `true` leaves the background unpainted; see below | `false` |
+
+## Transparent background
+
+Set `transparentBackground` to `true` to paint only the code: the quiet zone, the light modules and
+the gap inside each corner pattern are left transparent, so the code can be placed on existing
+artwork. A PNG has alpha 0 there; an SVG has no background rect and masks the corner gaps out.
+
+```json
+{
+  "data": "https://example.com",
+  "style": {
+    "foreground": "#111827",
+    "background": "#f4f1e8",
+    "transparentBackground": true
+  }
+}
+```
+
+`background` keeps its meaning: it is the colour of the surface the code is designed to sit on,
+and every check uses it. A gradient must still contrast with it, finder artwork is still adjusted
+against it, and the [scan check](#scan-check) flattens the image over it before reading, so a
+light-on-dark design is judged on the dark it was made for. Placing the code on a surface far
+from that colour, or on busy artwork without a clear quiet zone, can make it unreadable; the
+check cannot know where it will end up.
+
+How it combines with the other options:
+
+- **Corner patterns.** The gap between the ring and the centre is transparent for every shape.
+  With `CUSTOM` artwork the gap is cut out of the artwork, so the 1:1:3:1:1 structure is kept.
+- **Logo.** The plate is a deliberate patch behind the logo and keeps its own `background`
+  colour, so the logo stays legible on any artwork.
+- **Background image.** Rejected with a 400: the image would fill the background that is meant
+  to be transparent.
+- **Frame.** The card and bleed are not painted either, only the border and the text, so the
+  framed code works as a sticker on artwork. `frame.background` is ignored; the frame's quiet
+  zone check treats the card as `background`, the surface it will sit on.
 
 ## Logo
 
@@ -83,8 +120,9 @@ offers to switch when one is added.
 
 Set `finderShape` to `CUSTOM` and send `finderArtwork` to fill the three finder patterns with an
 image. The standard ring and centre stay in place and the one-module gap is left in the background
-colour, so the code keeps the 1:1:3:1:1 structure a reader looks for; only the colour inside the
-dark rings comes from the image. `finderColor` is the fallback for transparent pixels.
+colour, or transparent with `transparentBackground`, so the code keeps the 1:1:3:1:1 structure a
+reader looks for; only the colour inside the dark rings comes from the image. `finderColor` is the
+fallback for transparent pixels.
 
 ```json
 {
@@ -124,7 +162,8 @@ away from the luminance of everything drawn on top: the foreground (or both grad
 `finderColor` and any finder artwork. A dark photograph therefore becomes a pale wash, and a
 bright one keeps most of its colour. A light finder colour or light artwork raises the bar, so
 less of the image shows. Transparent pixels become the background colour. The SVG renderer embeds
-the washed PNG, so both formats show the same pixels.
+the washed PNG, so both formats show the same pixels. A background image cannot be combined with
+`transparentBackground`; the request is rejected with a 400.
 
 ## Gradient
 
@@ -192,7 +231,7 @@ larger rather than the code smaller.
 | -------------------- | --------------------------------------------- | ------------------ |
 | `title`              | up to 60 characters, bold, above the code     | none               |
 | `caption`            | up to 120 characters, below the code          | none               |
-| `background`         | `#rrggbb`, the card and the bleed             | style `background` |
+| `background`         | `#rrggbb`, the card and the bleed; ignored with `transparentBackground` | style `background` |
 | `textColor`          | `#rrggbb`                                     | the module colour  |
 | `borderColor`        | `#rrggbb`                                     | `textColor`        |
 | `titleSizePercent`   | 3–20                                          | 9                  |
@@ -232,7 +271,8 @@ render at 0 modules and reads it at 1, and a camera needs some headroom over tha
 ## Scan check
 
 `POST /api/qr-codes/check` takes the same document as the render endpoint and answers whether the
-result is likely to scan. It renders the PNG, then reads it with ZXing's quick reader three ways:
+result is likely to scan. It renders the PNG, flattens it over the `background` colour (which only matters when the
+background is transparent), then reads it with ZXing's quick reader three ways:
 
 | Trial      | Simulates                                                       |
 | ---------- | --------------------------------------------------------------- |
@@ -262,7 +302,8 @@ here sits on a blank canvas. The SVG has the same geometry as the PNG, so the ve
 
 ZXing reports whether it decoded, never why it didn't. The hints come from the style instead (logo
 coverage against the error-correction level, contrast, quiet zone, density, module and corner
-shapes, a background image), most likely cause first, and only when the verdict is not a pass.
+shapes, a background image), most likely cause first, and only when the verdict is not a pass. A
+transparent background adds a last hint naming the colour the verdict assumes.
 
 ## Errors
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest'
-import { createLink, currentUser, listLinks } from './client'
+import { checkQrCode, createLink, currentUser, listLinks, renderQrCode } from './client'
+import { defaultStyle } from '../qr/style'
 
 /** A response with a text body, shaped like the ones the client reads. */
 function response(status: number, body = '', contentType = 'application/problem+json'): Response {
@@ -86,5 +87,29 @@ describe('CSRF', () => {
 
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit
     expect(init.headers).not.toHaveProperty('X-XSRF-TOKEN')
+  })
+})
+
+describe('transparent background', () => {
+  test('the render and the scan check both send the flag', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(new Blob(['png']), { status: 200 }))
+      .mockResolvedValueOnce(
+        response(200, '{"verdict":"PASS","version":1,"modules":21,"trials":[],"hints":[]}', 'application/json'),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const style = { ...defaultStyle(), transparentBackground: true }
+
+    await renderQrCode({ data: 'hello', style }, 'png')
+    await checkQrCode({ data: 'hello', style })
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    for (const call of fetchMock.mock.calls) {
+      const body = JSON.parse((call[1] as RequestInit).body as string) as {
+        style: { transparentBackground: boolean }
+      }
+      expect(body.style.transparentBackground).toBe(true)
+    }
   })
 })

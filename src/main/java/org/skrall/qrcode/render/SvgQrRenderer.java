@@ -57,20 +57,23 @@ public class SvgQrRenderer {
             svg.append("  <desc>").append(text(frame.caption())).append("</desc>\n");
         }
         if (options.finderShape() == FinderShape.CUSTOM && options.finderArtwork() != null) {
-            appendFinderClipPaths(svg, scale);
+            appendFinderClipPaths(svg, scale, options.transparentBackground());
         }
         if (options.gradient() != null) {
             appendGradient(svg, options.gradient(), size);
         }
         if (frame != null) {
-            appendFrame(svg, frame);
+            appendFrame(svg, frame, options.transparentBackground());
             // Everything below is drawn in the code's own coordinates, as when unframed. Clip
             // paths and the gradient are in user space, so they move with the group.
             svg.append("  <g transform=\"translate(").append(frame.codeX()).append(' ')
                     .append(frame.codeY()).append(")\">\n");
         }
-        svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
-                .append("\" fill=\"").append(RenderOptions.hex(options.background())).append("\"/>\n");
+        // A transparent background is simply not drawn, as in the PNG.
+        if (!options.transparentBackground()) {
+            svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
+                    .append("\" fill=\"").append(RenderOptions.hex(options.background())).append("\"/>\n");
+        }
         if (options.backgroundImage() != null) {
             svg.append("  <image x=\"0\" y=\"0\" width=\"").append(size)
                     .append("\" height=\"").append(size)
@@ -88,9 +91,9 @@ public class SvgQrRenderer {
         }
         svg.append("  </g>\n");
 
-        appendEye(svg, offset(0, options, scale), offset(0, options, scale), scale, options);
-        appendEye(svg, offset(dimension - FINDER, options, scale), offset(0, options, scale), scale, options);
-        appendEye(svg, offset(0, options, scale), offset(dimension - FINDER, options, scale), scale, options);
+        appendEye(svg, 0, offset(0, options, scale), offset(0, options, scale), scale, options);
+        appendEye(svg, 1, offset(dimension - FINDER, options, scale), offset(0, options, scale), scale, options);
+        appendEye(svg, 2, offset(0, options, scale), offset(dimension - FINDER, options, scale), scale, options);
 
         appendLogo(svg, options);
         if (frame != null) {
@@ -104,11 +107,14 @@ public class SvgQrRenderer {
      * The card, its border and its text, drawn before the code.
      *
      * <p>The border and the text are the shapes {@link Frame} built, written out as path data, so
-     * they match what {@link PngQrRenderer} fills.
+     * they match what {@link PngQrRenderer} fills. A transparent background leaves the card and
+     * bleed unpainted.
      */
-    private static void appendFrame(StringBuilder svg, Frame frame) {
-        svg.append("  <rect width=\"").append(frame.width()).append("\" height=\"").append(frame.height())
-                .append("\" fill=\"").append(RenderOptions.hex(frame.background())).append("\"/>\n");
+    private static void appendFrame(StringBuilder svg, Frame frame, boolean transparent) {
+        if (!transparent) {
+            svg.append("  <rect width=\"").append(frame.width()).append("\" height=\"").append(frame.height())
+                    .append("\" fill=\"").append(RenderOptions.hex(frame.background())).append("\"/>\n");
+        }
         if (frame.border() != null) {
             appendShape(svg, frame.border(), RenderOptions.hex(frame.borderColor()));
         }
@@ -296,38 +302,75 @@ public class SvgQrRenderer {
                 + " Z";
     }
 
-    private static void appendEye(StringBuilder svg, double x, double y, double scale, RenderOptions options) {
+    /**
+     * One corner pattern: the outer shape, the one-module gap, then the centre.
+     *
+     * <p>The gap is painted in the background colour. With a transparent background it is cut out
+     * of the outer shape with a mask instead, as {@link PngQrRenderer} clears it, so the gap shows
+     * whatever the code sits on.
+     *
+     * @param index which eye, to give its mask a unique id
+     */
+    private static void appendEye(
+            StringBuilder svg, int index, double x, double y, double scale, RenderOptions options) {
+
+        if (options.finderShape() == FinderShape.CUSTOM) {
+            appendCustomEye(svg, x, y, scale, options);
+            return;
+        }
+
         double side = FINDER * scale;
         String foreground = finderFill(options);
-        String background = RenderOptions.hex(options.background());
+        boolean transparent = options.transparentBackground();
+        // Inside a mask, black hides what the mask is applied to.
+        String background = transparent ? "#000" : RenderOptions.hex(options.background());
+        StringBuilder outer = new StringBuilder();
+        StringBuilder gap = new StringBuilder();
+        StringBuilder centre = new StringBuilder();
         switch (options.finderShape()) {
             case SQUARE -> {
-                appendRect(svg, x, y, side, 0, foreground);
-                appendRect(svg, x + scale, y + scale, side - 2 * scale, 0, background);
-                appendRect(svg, x + 2 * scale, y + 2 * scale, 3 * scale, 0, foreground);
+                appendRect(outer, x, y, side, 0, foreground);
+                appendRect(gap, x + scale, y + scale, side - 2 * scale, 0, background);
+                appendRect(centre, x + 2 * scale, y + 2 * scale, 3 * scale, 0, foreground);
             }
             case ROUNDED -> {
-                appendRect(svg, x, y, side, 2.4 * scale, foreground);
-                appendRect(svg, x + scale, y + scale, side - 2 * scale, 1.6 * scale, background);
-                appendRect(svg, x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale, foreground);
+                appendRect(outer, x, y, side, 2.4 * scale, foreground);
+                appendRect(gap, x + scale, y + scale, side - 2 * scale, 1.6 * scale, background);
+                appendRect(centre, x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale, foreground);
             }
             case CIRCLE -> {
-                appendCircle(svg, x + side / 2, y + side / 2, side / 2, foreground);
-                appendCircle(svg, x + side / 2, y + side / 2, side / 2 - scale, background);
-                appendCircle(svg, x + side / 2, y + side / 2, 1.5 * scale, foreground);
+                appendCircle(outer, x + side / 2, y + side / 2, side / 2, foreground);
+                appendCircle(gap, x + side / 2, y + side / 2, side / 2 - scale, background);
+                appendCircle(centre, x + side / 2, y + side / 2, 1.5 * scale, foreground);
             }
             case LEAF -> {
-                appendPath(svg, leafPath(x, y, side, 2.4 * scale), foreground);
-                appendPath(svg, leafPath(x + scale, y + scale, side - 2 * scale, 1.6 * scale), background);
-                appendPath(svg, leafPath(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale), foreground);
+                appendPath(outer, leafPath(x, y, side, 2.4 * scale), foreground);
+                appendPath(gap, leafPath(x + scale, y + scale, side - 2 * scale, 1.6 * scale), background);
+                appendPath(centre, leafPath(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale), foreground);
             }
             case DIAMOND -> {
-                appendPath(svg, diamondPath(x, y, side, 0), foreground);
-                appendPath(svg, diamondPath(x, y, side, scale), background);
-                appendPath(svg, diamondPath(x, y, side, 2 * scale), foreground);
+                appendPath(outer, diamondPath(x, y, side, 0), foreground);
+                appendPath(gap, diamondPath(x, y, side, scale), background);
+                appendPath(centre, diamondPath(x, y, side, 2 * scale), foreground);
             }
-            case CUSTOM -> appendCustomEye(svg, x, y, scale, options);
+            case CUSTOM -> throw new IllegalStateException("Handled above");
         }
+
+        if (transparent) {
+            String id = "finder-gap-" + index;
+            int size = options.size();
+            svg.append("  <mask id=\"").append(id)
+                    .append("\" maskUnits=\"userSpaceOnUse\" x=\"0\" y=\"0\" width=\"").append(size)
+                    .append("\" height=\"").append(size).append("\">\n");
+            svg.append("  <rect width=\"").append(size).append("\" height=\"").append(size)
+                    .append("\" fill=\"#fff\"/>\n");
+            svg.append(gap);
+            svg.append("  </mask>\n");
+            svg.append("  <g mask=\"url(#").append(id).append(")\">\n").append(outer).append("  </g>\n");
+        } else {
+            svg.append(outer).append(gap);
+        }
+        svg.append(centre);
     }
 
     /**
@@ -336,7 +379,7 @@ public class SvgQrRenderer {
      * <p>Defined once per document: every eye uses the same seven-module geometry, and the group
      * transform moves the clip paths with it.
      */
-    private static void appendFinderClipPaths(StringBuilder svg, double scale) {
+    private static void appendFinderClipPaths(StringBuilder svg, double scale, boolean transparent) {
         double side = FINDER * scale;
         svg.append("  <defs>\n");
         svg.append("    <clipPath id=\"finder-outer\"><rect x=\"0\" y=\"0\" width=\"")
@@ -347,6 +390,16 @@ public class SvgQrRenderer {
                 .append("\" width=\"").append(num(3 * scale))
                 .append("\" height=\"").append(num(3 * scale))
                 .append("\"/></clipPath>\n");
+        if (transparent) {
+            // Hides the one-module gap of the outer artwork, so the gap stays transparent.
+            svg.append("    <mask id=\"finder-gap\" maskUnits=\"userSpaceOnUse\" x=\"0\" y=\"0\" width=\"")
+                    .append(num(side)).append("\" height=\"").append(num(side)).append("\">")
+                    .append("<rect width=\"").append(num(side)).append("\" height=\"").append(num(side))
+                    .append("\" fill=\"#fff\"/><rect x=\"").append(num(scale)).append("\" y=\"").append(num(scale))
+                    .append("\" width=\"").append(num(side - 2 * scale))
+                    .append("\" height=\"").append(num(side - 2 * scale))
+                    .append("\" fill=\"#000\"/></mask>\n");
+        }
         svg.append("  </defs>\n");
     }
 
@@ -354,7 +407,8 @@ public class SvgQrRenderer {
      * The standard square eye with the artwork filling its two dark regions.
      *
      * <p>Mirrors {@link PngQrRenderer}: the outer square and the centre are filled with the
-     * artwork, then the one-module gap is painted back in the background colour. The ring and
+     * artwork, then the one-module gap is painted back in the background colour, or masked out of
+     * the outer artwork when the background is transparent. The ring and
      * centre are always present, so the 1:1:3:1:1 structure survives whatever the image contains.
      * The artwork was already flattened over {@code finderColor}, so transparent pixels are that
      * colour.
@@ -371,8 +425,14 @@ public class SvgQrRenderer {
         double side = FINDER * scale;
         svg.append("  <g transform=\"translate(").append(num(x)).append(' ').append(num(y))
                 .append(")\">\n");
-        appendArtworkImage(svg, artwork, side, "finder-outer");
-        appendRect(svg, scale, scale, side - 2 * scale, 0, RenderOptions.hex(options.background()));
+        if (options.transparentBackground()) {
+            svg.append("  <g mask=\"url(#finder-gap)\">\n");
+            appendArtworkImage(svg, artwork, side, "finder-outer");
+            svg.append("  </g>\n");
+        } else {
+            appendArtworkImage(svg, artwork, side, "finder-outer");
+            appendRect(svg, scale, scale, side - 2 * scale, 0, RenderOptions.hex(options.background()));
+        }
         appendArtworkImage(svg, artwork, side, "finder-centre");
         svg.append("  </g>\n");
     }

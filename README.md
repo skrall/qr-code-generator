@@ -16,6 +16,9 @@ by the same process.
   set in a bundled font, so a PNG and an SVG of the same card match.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
+- **Transparent backgrounds** — leave the background unpainted, in PNG and SVG, so the code sits
+  on your own artwork. The corner gaps are transparent too; the scan check reads the code on the
+  background colour it was designed for.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
   bitcoin.
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
