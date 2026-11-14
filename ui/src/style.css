@@ -630,6 +630,28 @@ input[type='color'] {
   flex: 1;
 }
 
+.print-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.print-size-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.print-size-field input {
+  width: 6em;
+}
+
+.print-size .hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .embed-menu {
   display: flex;
   flex-direction: column;

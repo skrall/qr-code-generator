@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type { QrFormat } from '../api/client'
 import type { EmbedSource } from '../embed'
+import { DPI_DEFAULT } from '../print'
 import EmbedMenu from './EmbedMenu.vue'
+import PrintSize from './PrintSize.vue'
 import type { PreviewState } from '../preview'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     url: string
     state: PreviewState
@@ -18,24 +21,51 @@ withDefaults(
     downloadable?: boolean
     /** Enables "Copy as…" snippets; omitted, the menu is not shown. */
     embed?: EmbedSource | null
+    /** A frame's bleed on each side in pixels, for the print size; 0 for none. */
+    bleed?: number
   }>(),
   {
     placeholder: 'Fill in the required fields and the code appears here.',
     draft: false,
     downloadable: true,
     embed: null,
+    bleed: 0,
   },
 )
 
 defineEmits<{
-  download: [format: QrFormat]
+  /** A download in a format, at the print resolution chosen here. */
+  download: [format: QrFormat, dpi: number]
 }>()
+
+/** The print resolution: an output setting, kept here rather than in the style. */
+const dpi = ref(DPI_DEFAULT)
+
+/** The preview's pixel size, which is the download's: a frame makes it larger than `size`. */
+const width = ref(0)
+const height = ref(0)
+
+function measure(event: Event): void {
+  const image = event.target as HTMLImageElement
+  width.value = image.naturalWidth
+  height.value = image.naturalHeight
+}
+
+watch(
+  () => props.url,
+  (url) => {
+    if (!url) {
+      width.value = 0
+      height.value = 0
+    }
+  },
+)
 </script>
 
 <template>
   <div class="preview">
     <div class="preview-stage">
-      <img v-if="url" :src="url" alt="QR code preview" />
+      <img v-if="url" :src="url" alt="QR code preview" @load="measure" />
       <p v-else-if="state === 'loading'" class="preview-placeholder">Rendering…</p>
       <p v-else class="preview-placeholder">{{ placeholder }}</p>
       <span v-if="state === 'loading' && url" class="spinner" aria-hidden="true"></span>
@@ -55,14 +85,19 @@ defineEmits<{
         type="button"
         class="primary"
         :disabled="!url || !downloadable"
-        @click="$emit('download', 'png')"
+        @click="$emit('download', 'png', dpi)"
       >
         Download PNG
       </button>
-      <button type="button" :disabled="!url || !downloadable" @click="$emit('download', 'svg')">
+      <button type="button" :disabled="!url || !downloadable" @click="$emit('download', 'svg', dpi)">
         Download SVG
       </button>
+      <button type="button" :disabled="!url || !downloadable" @click="$emit('download', 'pdf', dpi)">
+        Download PDF
+      </button>
     </div>
+
+    <PrintSize v-model:dpi="dpi" :width="width" :height="height" :bleed="bleed" />
 
     <EmbedMenu
       v-if="embed"

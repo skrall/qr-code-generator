@@ -33,6 +33,7 @@ import org.skrall.qrcode.model.QrFrame;
  * @param height            the canvas height, bleed included
  * @param codeX             the left edge of the code, quiet zone included
  * @param codeY             the top edge of the code, quiet zone included
+ * @param bleed             the bleed on every side: the trim line is this far inside the canvas
  * @param background        the card colour, which also fills the bleed; with a transparent
  *                          background the card is not painted and this is the code's background,
  *                          the surface the card is meant to sit on
@@ -51,6 +52,7 @@ public record Frame(
         int height,
         int codeX,
         int codeY,
+        int bleed,
         Color background,
         Shape border,
         Color borderColor,
@@ -174,6 +176,7 @@ public record Frame(
                 height,
                 codeX,
                 codeY,
+                bleed,
                 card,
                 border > 0 ? ring(bleed + margin, width, height, border, radius) : null,
                 borderColor,

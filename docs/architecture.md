@@ -5,7 +5,7 @@ src/main/java/org/skrall/qrcode/
 ├── model/          request DTOs and enums, with the validation constraints
 ├── service/        encoding: payload → ZXing BitMatrix
 ├── check/          reads a rendered code back for the scan check
-├── render/         matrix → PNG (Java2D) or SVG
+├── render/         matrix → PNG (Java2D), PDF or SVG
 ├── link/           short link entity, repository and redirect resolution
 ├── design/         saved designs and who may see and change them
 ├── batch/          CSV reading, ZIP entry names and the streamed batch render
@@ -22,6 +22,7 @@ ui/src/
 ├── api/client.ts   the typed API client and the logo file reader
 ├── components/     content form, style panel, logo panel, preview, short links, share link
 ├── embed.ts        "Copy as…" snippet builders (alt text, data URLs, inline SVG ids)
+├── print.ts        print size: DPI range and the millimetres a download prints at
 ├── history.ts      undo/redo history, snapshots and the keyboard shortcut rules
 ├── editorHistory.ts the history wired to the editor's reactive state and the keyboard
 ├── share.ts        the share link format: encode, decode and check
@@ -29,8 +30,45 @@ ui/src/
 ```
 
 ZXing is used only to encode. Its writers can draw squares and nothing else, so rendering is
-this project's own code: `PngQrRenderer` with Java2D and `SvgQrRenderer` with string geometry. The
-two mirror each other deliberately, which is why they sit side by side.
+this project's own code. `QrPainter` holds the geometry and draws it on a `Canvas`: a
+`Java2dCanvas` for the PNG (`PngQrRenderer`) or a `PdfCanvas` for the PDF (`PdfQrRenderer`).
+`SvgQrRenderer` writes the same geometry as strings and mirrors `QrPainter` deliberately, which is
+why they sit side by side.
+
+## PDF
+
+The PDF is written by this project, not by a library. A canvas only has to fill Java2D shapes
+with a colour or a two-stop gradient, clip to a shape, and place an image, and a PDF content
+stream does each of those with a handful of operators (`m l c h f f* W n cm Do`, a shading
+pattern, an image XObject under Flate). Writing them directly (about 640 lines in
+`PdfCanvas`, `PdfDocument`, `PdfImages` and `PdfQrRenderer`) keeps the jar and the native image
+free of a PDF library, and because the PDF reuses `QrPainter`, its geometry cannot drift from the
+PNG's.
+
+The alternatives were Apache PDFBox (Apache 2.0) with a Graphics2D bridge such as
+`pdfbox-graphics2d`, which would have drawn through the existing Java2D code but adds about
+3.7 MB of jars (`pdfbox`, `pdfbox-io`, `fontbox`, `commons-logging`), brings PDFBox's font and
+resource loading into the native image's hints, and relies on a bridge whose handling of
+`AlphaComposite.Clear` (the transparent eye gaps) a PDF cannot express anyway; or OpenPDF
+(LGPL/MPL), with similar weight and its own Graphics2D. PDFBox is still used, in tests only, to
+read the PDFs back and rasterise them.
+
+The one thing the PNG did that a PDF cannot is erase: the PNG cleared the eye's gap with
+`AlphaComposite.Clear` over a transparent background. The canvas therefore has no clear; it has
+`fillRing` and `drawImageInRing` instead. Java2D still fills and clears, so the PNG's pixels are
+unchanged, and the PDF fills the outer and inner shape as one even-odd path, or clips to it.
+
+A gradient is a shading pattern set as the fill colour, so a module pass is one `scn` and then
+plain fills. A pattern is positioned in the page's default space, not the current transform, so
+its matrix is the transform in force where it is used. Images are embedded once each, at their
+own resolution, as RGB with PNG row predictors and a soft mask for any transparency.
+
+The page is the image at `dpi`: one pixel is `72 / dpi` points. With a frame's bleed the page
+gets a TrimBox inside the BleedBox and a slug outside it for crop marks; see the API document.
+
+A PNG records `dpi` in a `pHYs` chunk spliced in after `IHDR`, rather than through ImageIO's
+metadata tree: the encoded pixels stay byte for byte the same, and nothing new has to be reachable
+in the native image.
 
 The quiet zone is applied by the renderers in module units rather than by ZXing, so `margin` means
 the same thing at every size. The finder patterns are skipped in the module pass and drawn as
