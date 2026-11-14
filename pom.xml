@@ -154,6 +154,14 @@
                         -->
                         <env>
                             <BPE_SERVER_ADDRESS>0.0.0.0</BPE_SERVER_ADDRESS>
+                            <!--
+                                The JVM (or native-image toolchain) the buildpack installs. Left
+                                out, it is read from the jar manifest, which records whichever JDK
+                                ran Maven: a build on a newer system JDK then asks for a native
+                                toolchain that does not exist ("unable to find dependency for
+                                native-image-svm 27"). Pinned to the version the code targets.
+                            -->
+                            <BP_JVM_VERSION>${java.version}</BP_JVM_VERSION>
                         </env>
                     </image>
                 </configuration>
@@ -253,4 +261,25 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            Merged with spring-boot-starter-parent's own "native" profile, so
+            ./mvnw -Pnative spring-boot:build-image picks both up.
+        -->
+        <profile>
+            <id>native</id>
+            <properties>
+                <!--
+                    The native image needs fontconfig and at least one system font for Java2D to
+                    start its font manager, which every framed code goes through. The default
+                    "tiny" run image is distroless and has neither; the base run image ships
+                    fontconfig and DejaVu (about 200 MB against 40 MB). The JVM image stays on
+                    "tiny": there the JDK accepts a generated fontconfig.properties instead, which
+                    FontConfigFallback writes, but a native image ignores that file.
+                -->
+                <spring-boot.build-image.runImage>paketobuildpacks/ubuntu-noble-run:latest</spring-boot.build-image.runImage>
+            </properties>
+        </profile>
+    </profiles>
 </project>

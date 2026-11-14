@@ -105,6 +105,19 @@ publish the port beyond loopback and set `APP_PUBLIC_BASE_URL` to an address the
 The app container has no healthcheck: the run image is distroless, with no shell or `curl` to
 probe with. Poll `http://127.0.0.1:8080/actuator/health` from the host instead.
 
+#### Native image
+
+A GraalVM native image starts in well under a second and runs with either profile:
+
+```bash
+./mvnw -Pnative spring-boot:build-image -Dspring-boot.build-image.imageName=qr-code-generator-native:1.0.0
+QR_CODE_IMAGE=qr-code-generator-native:1.0.0 docker compose up
+```
+
+The native build uses Paketo's base run image rather than the distroless "tiny" one: framed
+codes set their text with Java2D, which in a native image finds fonts only through fontconfig,
+and "tiny" has none. The image is about 160 MB larger as a result. The JVM image stays on "tiny".
+
 ### Build and test
 
 ```bash

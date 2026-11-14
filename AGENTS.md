@@ -92,6 +92,43 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - To try the compose file without touching a real `.env` or its volumes, use another project
   name and port: `COMPOSE_PROFILES=postgres APP_PORT=18080 QR_CODE_PASSWORD=x POSTGRES_PASSWORD=y
   docker compose -p qrtest up -d`, then `docker compose -p qrtest down -v`.
+- `BP_JVM_VERSION` is pinned to `${java.version}`. Unpinned, the buildpack reads the version from
+  the jar manifest, i.e. whichever JDK ran Maven, and a JDK 27 shell asks for a native toolchain
+  that does not exist (`unable to find dependency for native-image-svm 27`).
+- The distroless run image has no fontconfig, so the JDK refuses to load any font
+  ("Fontconfig head is null"). `FontConfigFallback` writes a `fontconfig.properties` and points
+  `sun.awt.fontconfig` at it before `FrameFonts` loads Inter. It only acts on Linux without
+  `/etc/fonts/fonts.conf`. A native image ignores that property, see below.
+
+## Native image
+
+- Build: `./mvnw -Pnative spring-boot:build-image`. Run it with `QR_CODE_IMAGE=<tag>` and the
+  compose file. The `native` profile in `pom.xml` merges with Spring Boot's and switches the run
+  image to Paketo's base image, which has fontconfig and DejaVu: a native image only finds fonts
+  through libfontconfig, so on "tiny" every framed code fails.
+- What the image needs beyond Spring's AOT lives in `org.skrall.qrcode.nativeimage` (one
+  registrar per library, each naming the failure it fixes) and in
+  `src/main/resources/META-INF/native-image/org.skrall/qr-code-generator-java2d` (Java2D JNI,
+  ImageIO and the HarfBuzz FFM calls, as JSON). Do not write into
+  `META-INF/native-image/org.skrall/qr-code-generator`: Spring's AOT output owns that path.
+- Resource patterns passed to `registerPattern` are image-builder globs: no `classpath*:` prefix.
+  A prefixed pattern matches nothing at build time. `ClassPathScanner` patterns are the opposite:
+  they are Spring resolver locations and need `classpath*:` to see every jar.
+- `ClassPathScanner` skips `package-info`/`module-info`; a hint naming one fails AOT processing.
+- A class name with `$` inside it (`Messages_$bundle`, `JpaLogger_$logger`) is parsed as nested by
+  Spring's Class-based hint predicates, which then report a miss for a hint that is present. Test
+  those by binary name.
+- Each native build takes a few minutes and surfaces one startup failure at a time. To find the
+  gaps in one pass, run the native-profile jar on a GraalVM JDK under the tracing agent and
+  exercise every endpoint, then diff against what the build already has:
+  `docker run ... ghcr.io/graalvm/jdk-community:25 java -agentlib:native-image-agent=config-merge-dir=/out -Dspring.aot.enabled=true -jar app.jar`.
+  That container's JDK needs `microdnf install freetype` for fonts, and should have no
+  `/etc/fonts` so the fallback path is traced. The agent misses arrays created only on paths a
+  native image takes (Hikari's `ConcurrentBag$IConcurrentBagEntry[]`), so smoke-test the image too.
+- Logs worth knowing: Flyway's "Unable to scan location: /db/migration (unsupported protocol:
+  resource)" is harmless, as Spring Boot's resource provider applies the migrations. Hikari reports a
+  failed first connection as a bare NPE in `throwPoolInitializationException`; set
+  `LOGGING_LEVEL_COM_ZAXXER_HIKARI=DEBUG` to see the real error.
 
 ## Short links
 
