@@ -17,12 +17,15 @@ import FramePanel from './components/FramePanel.vue'
 import LogoPanel from './components/LogoPanel.vue'
 import QrPreview from './components/QrPreview.vue'
 import ScanStatus from './components/ScanStatus.vue'
+import ShareLink from './components/ShareLink.vue'
 import ShortLinkForm from './components/ShortLinkForm.vue'
 import StylePanel from './components/StylePanel.vue'
 import type { PreviewState } from './preview'
 import { altText, type EmbedSource, linkTarget } from './embed'
 import { findQrType, initialValues, QR_TYPES, type QrTypeId } from './qr/types'
 import { defaultStyle } from './qr/style'
+import { useEditorHistory } from './editorHistory'
+import type { CurrentDesign } from './share'
 
 const view = ref<'generator' | 'links'>('generator')
 
@@ -36,6 +39,16 @@ const values = reactive<Record<string, Record<string, string>>>(
 const model = computed(() => values[typeId.value])
 
 const style = reactive<QrStyle>(defaultStyle())
+
+const { canUndo, canRedo, undo, redo, commit } = useEditorHistory({
+  typeId,
+  values,
+  style,
+  // The links view hides the editor; an undo there would change what nobody can see.
+  active: () => view.value === 'generator',
+})
+/** The saved design on screen, which a share link names when the style has images. */
+const savedDesign = ref<CurrentDesign | null>(null)
 
 /**
  * The short link's payload comes from the server, not from a builder, so it is held here. Until
@@ -245,6 +258,10 @@ onUnmounted(() => {
         <p>Styled codes with rounded modules, shaped corner patterns and your own logo.</p>
       </div>
       <div class="header-actions">
+        <div v-show="view === 'generator'" class="history-actions">
+          <button type="button" :disabled="!canUndo" title="Undo (Ctrl+Z)" @click="undo">Undo</button>
+          <button type="button" :disabled="!canRedo" title="Redo (Ctrl+Shift+Z)" @click="redo">Redo</button>
+        </div>
         <nav class="view-nav" aria-label="View">
           <button
             type="button"
@@ -304,7 +321,7 @@ onUnmounted(() => {
 
         <div class="card">
           <h2>Designs</h2>
-          <DesignsPanel :qr-style="style" />
+          <DesignsPanel :qr-style="style" @current="savedDesign = $event" />
         </div>
 
         <div class="card">
@@ -357,6 +374,17 @@ onUnmounted(() => {
           <p v-if="missing.length" class="hint" aria-live="polite">
             Still needed: {{ missing.map((field) => field.label).join(', ') }}
           </p>
+        </div>
+
+        <div class="card">
+          <h2>Share</h2>
+          <ShareLink
+            v-model:type-id="typeId"
+            :qr-style="style"
+            :values="values"
+            :design="savedDesign"
+            @applied="commit"
+          />
         </div>
       </aside>
     </main>

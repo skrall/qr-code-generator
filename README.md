@@ -27,6 +27,10 @@ by the same process.
   (EPC QR code, with IBAN checking).
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
   everyone who signs in, and export or import it as a JSON file.
+- **Undo, redo and share links** — undo any edit to the style or content (Ctrl/Cmd+Z), and copy
+  a link that reopens the design, optionally with its content. The design travels in the link's
+  `#` fragment, never sent to the server; secrets such as a WiFi password are always left out, and
+  a design with images is shared as a link to the saved design instead.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
   expiry, a searchable list and hit counts.
 - **Sign-in** — HTTP Basic by default, or an identity provider (Okta, Entra ID), or a trusted

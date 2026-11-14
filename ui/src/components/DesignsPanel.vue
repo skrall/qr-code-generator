@@ -11,6 +11,7 @@ import {
   type QrStyle,
 } from '../api/client'
 import { applyStyle, designFile, designFileName, parseDesignFile } from '../qr/style'
+import type { CurrentDesign } from '../share'
 
 /**
  * Saves the current style as a named design, loads saved ones, and moves designs in and out as
@@ -20,6 +21,9 @@ import { applyStyle, designFile, designFileName, parseDesignFile } from '../qr/s
  * plain object, and loading a design would then change a copy nobody renders.
  */
 const props = defineProps<{ qrStyle: QrStyle }>()
+
+/** The saved design on screen, so a share link can name it instead of carrying its images. */
+const emit = defineEmits<{ current: [design: CurrentDesign | null] }>()
 
 const designs = ref<DesignSummary[]>([])
 const selectedId = ref<number | ''>('')
@@ -42,12 +46,25 @@ const canSave = computed(() => trimmedName.value.length > 0 && !busy.value)
 
 const currentStyle = (): string => JSON.stringify(apiStyle(props.qrStyle))
 
+const styleChanged = computed(() => loaded.value !== null && snapshot.value !== currentStyle())
+
 const dirty = computed(
   () =>
     loaded.value !== null &&
-    (snapshot.value !== currentStyle() ||
+    (styleChanged.value ||
       trimmedName.value !== loaded.value.name ||
       shared.value !== loaded.value.shared),
+)
+
+watch(
+  [loaded, styleChanged],
+  ([design, changed]) => {
+    emit(
+      'current',
+      design && { id: design.id, name: design.name, shared: design.shared, unchanged: !changed },
+    )
+  },
+  { immediate: true },
 )
 
 // A pending delete is for the design on screen; changing anything else cancels it.
