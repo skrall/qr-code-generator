@@ -323,11 +323,45 @@ Set `APP_PUBLIC_BASE_URL` to the address a scanner can reach — a LAN address, 
 behind a reverse proxy — before generating codes.
 
 
+## Saved designs
+
+A design is a named style, images included, saved to reuse. It is private to whoever saved it
+unless shared, in which case everyone who can sign in sees it.
+
+| Request | Does |
+| --- | --- |
+| `GET /api/designs` | The caller's designs and every shared one, by name, without their styles |
+| `GET /api/designs/{id}` | One design with its style |
+| `POST /api/designs` | Saves `{"name", "shared", "style"}`; answers 201 |
+| `PUT /api/designs/{id}` | Renames, shares or unshares, and replaces the style when `style` is sent |
+| `DELETE /api/designs/{id}` | Deletes it; answers 204 |
+
+```bash
+curl -X POST http://localhost:8080/api/designs \
+  --user operator:change-me-on-deploy \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Brand blue","shared":true,"style":{"moduleShape":"ROUNDED","finderColor":"#3158c4"}}'
+```
+
+- **Who sees what.** Your own designs and every shared one. Someone else's private design
+  answers 404, for operators too, so its existence is not disclosed.
+- **Who changes what.** A design's owner, and operators for shared designs. Anyone else gets a
+  403. Each listed design says `mine` and `editable`, so a client can show the right actions.
+- **Checked on save.** The style goes through the same checks as a render (image limits,
+  gradient contrast, frame text), so a design that could not render is refused with a 400.
+- **Light lists.** A style with images can run to megabytes, so the list leaves styles out, and
+  an update without `style` keeps the saved one instead of requiring the images to be resent.
+
+Any signed-in user may save designs: the operator role governs short links, not styles. The UI
+also exports a design as a `.qr-design.json` file and imports one back; that happens in the
+browser and needs no endpoint.
+
 ## Other endpoints
 
 | Path                | Purpose                        |
 | ------------------- | ------------------------------ |
 | `/api/links`        | Create, list, edit and delete short links |
+| `/api/designs`      | Save, list, load, change and delete designs |
 | `/api/me`           | The signed-in user and whether they hold the operator role |
 | `/r/{code}`         | Redirect for a short link      |
 | `/actuator/health`  | Liveness and readiness         |

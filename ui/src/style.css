@@ -1030,3 +1030,26 @@ input[type='color'] {
     flex-wrap: wrap;
   }
 }
+
+/* Designs ----------------------------------------------------------------- */
+
+.designs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.design-picker {
+  display: flex;
+  gap: 8px;
+}
+
+.design-picker select {
+  flex: 1;
+  min-width: 0;
+}
+
+.design-status,
+.design-notice {
+  margin: 0;
+}
