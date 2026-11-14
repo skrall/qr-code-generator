@@ -132,25 +132,27 @@ export interface ScanCheck {
   hints: string[]
 }
 
+/**
+ * The style as the API takes it. Absent images are omitted rather than sent as null, so the
+ * document matches the shape the API documents. Artwork is only useful with the custom finder
+ * shape, so it is left out otherwise instead of sending megabytes the server would ignore.
+ * Saved designs go through the same cleanup, so a design never stores artwork it cannot show.
+ */
+export function apiStyle(style: QrStyle): Partial<QrStyle> {
+  return {
+    ...style,
+    gradient: style.gradient ?? undefined,
+    backgroundImage: style.backgroundImage ?? undefined,
+    finderArtwork:
+      style.finderShape === 'CUSTOM' ? (style.finderArtwork ?? undefined) : undefined,
+    logo: style.logo ?? undefined,
+    frame: style.frame ?? undefined,
+  }
+}
+
 /** The request document the render and check endpoints both take. */
 function requestBody(request: RenderRequest): string {
-  return JSON.stringify({
-    data: request.data,
-    // Absent images are omitted rather than sent as null, so the document matches the shape
-    // the API documents. Artwork is only useful with the custom finder shape, so it is left
-    // out otherwise instead of sending megabytes the server would ignore.
-    style: {
-      ...request.style,
-      gradient: request.style.gradient ?? undefined,
-      backgroundImage: request.style.backgroundImage ?? undefined,
-      finderArtwork:
-        request.style.finderShape === 'CUSTOM'
-          ? (request.style.finderArtwork ?? undefined)
-          : undefined,
-      logo: request.style.logo ?? undefined,
-      frame: request.style.frame ?? undefined,
-    },
-  })
+  return JSON.stringify({ data: request.data, style: apiStyle(request.style) })
 }
 
 export async function renderQrCode(
@@ -291,6 +293,83 @@ export async function listLinks(
 /** Soft deletes a link: its code then answers 410 Gone instead of 404. */
 export async function deleteLink(code: string): Promise<void> {
   const response = await send(`/api/links/${encodeURIComponent(code)}`, { method: 'DELETE' })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+}
+
+/** A saved design as listed: everything but its style. */
+export interface DesignSummary {
+  id: number
+  name: string
+  /** Who saved it; null when sign-in is off. */
+  owner: string | null
+  shared: boolean
+  mine: boolean
+  /** Whether the caller may rename, overwrite, share or delete it. */
+  editable: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** A saved design with its style, as stored: fields the saver left at null are absent. */
+export interface Design extends DesignSummary {
+  style: Partial<QrStyle>
+}
+
+export interface DesignInput {
+  name: string
+  shared: boolean
+  /** Omitted on an update that only renames or shares, so the images are not sent again. */
+  style?: QrStyle
+}
+
+async function json<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as T
+}
+
+/** The caller's own designs and every shared one, by name. */
+export async function listDesigns(signal?: AbortSignal): Promise<DesignSummary[]> {
+  return json(await send('/api/designs', { signal }))
+}
+
+export async function getDesign(id: number): Promise<Design> {
+  return json(await send(`/api/designs/${id}`))
+}
+
+export async function createDesign(input: DesignInput): Promise<Design> {
+  return json(
+    await send('/api/designs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: input.name,
+        shared: input.shared,
+        style: input.style ? apiStyle(input.style) : undefined,
+      }),
+    }),
+  )
+}
+
+export async function updateDesign(id: number, input: DesignInput): Promise<Design> {
+  return json(
+    await send(`/api/designs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: input.name,
+        shared: input.shared,
+        style: input.style ? apiStyle(input.style) : undefined,
+      }),
+    }),
+  )
+}
+
+export async function deleteDesign(id: number): Promise<void> {
+  const response = await send(`/api/designs/${id}`, { method: 'DELETE' })
   if (!response.ok) {
     throw new Error(await problemDetail(response))
   }

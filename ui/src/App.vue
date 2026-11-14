@@ -12,6 +12,7 @@ import {
 } from './api/client'
 import ContentForm from './components/ContentForm.vue'
 import LinksView from './components/LinksView.vue'
+import DesignsPanel from './components/DesignsPanel.vue'
 import FramePanel from './components/FramePanel.vue'
 import LogoPanel from './components/LogoPanel.vue'
 import QrPreview from './components/QrPreview.vue'
@@ -20,6 +21,7 @@ import ShortLinkForm from './components/ShortLinkForm.vue'
 import StylePanel from './components/StylePanel.vue'
 import type { PreviewState } from './preview'
 import { findQrType, initialValues, QR_TYPES, type QrTypeId } from './qr/types'
+import { defaultStyle } from './qr/style'
 
 const view = ref<'generator' | 'links'>('generator')
 
@@ -32,21 +34,7 @@ const values = reactive<Record<string, Record<string, string>>>(
 )
 const model = computed(() => values[typeId.value])
 
-const style = reactive<QrStyle>({
-  size: 640,
-  margin: 4,
-  errorCorrection: 'QUARTILE',
-  foreground: '#111827',
-  gradient: null,
-  background: '#ffffff',
-  backgroundImage: null,
-  moduleShape: 'ROUNDED',
-  finderShape: 'ROUNDED',
-  finderColor: '#3158c4',
-  finderArtwork: null,
-  logo: null,
-  frame: null,
-})
+const style = reactive<QrStyle>(defaultStyle())
 
 /**
  * The short link's payload comes from the server, not from a builder, so it is held here. Until
@@ -301,6 +289,11 @@ onUnmounted(() => {
             @draft="linkDraft"
           />
           <ContentForm v-else :type="activeType" :model="model" />
+        </div>
+
+        <div class="card">
+          <h2>Designs</h2>
+          <DesignsPanel :qr-style="style" />
         </div>
 
         <div class="card">

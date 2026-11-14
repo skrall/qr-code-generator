@@ -7,12 +7,14 @@ src/main/java/org/skrall/qrcode/
 ├── check/          reads a rendered code back for the scan check
 ├── render/         matrix → PNG (Java2D) or SVG
 ├── link/           short link entity, repository and redirect resolution
+├── design/         saved designs and who may see and change them
 ├── security/       the four sign-in modes, role mapping and the proxy allowlist
 ├── nativeimage/    runtime hints a GraalVM native image needs (see AGENTS.md)
 └── web/            the controllers, the error advice and the format converter
 
 src/main/resources/db/migration/
-└── V1__short_link.sql   the schema Flyway applies
+├── V1__short_link.sql   short links
+└── V2__design.sql       saved designs
 
 ui/src/
 ├── qr/types.ts     the payload builders for every supported content type

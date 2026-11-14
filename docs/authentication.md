@@ -16,6 +16,8 @@ What is guarded is the same in every mode:
   `/actuator/health`, `/actuator/info` and `/v3/api-docs`.
 - **Signed in (VIEWER):** everything else: the UI, rendering, the scan check and listing links.
 - **OPERATOR:** creating, editing and deleting short links, and any other actuator endpoint.
+  Saved designs follow their own rule: anyone signed in may save them, and a design can be
+  changed by its owner, or by an operator when it is shared. See [the API](api.md#saved-designs).
   An OPERATOR is always a VIEWER too.
 
 A refusal is an RFC 9457 problem document: 401 when nobody is signed in, 403 when the user lacks

@@ -8,6 +8,8 @@ import org.skrall.qrcode.FrameException;
 import org.skrall.qrcode.GradientException;
 import org.skrall.qrcode.LogoException;
 import org.skrall.qrcode.QrEncodingException;
+import org.skrall.qrcode.design.DesignNotEditableException;
+import org.skrall.qrcode.design.DesignNotFoundException;
 import org.skrall.qrcode.link.InvalidLinkException;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -80,6 +82,20 @@ public class ValidationProblemDetailAdvice {
      * A destination that is not an absolute http(s) URL, or an expiry that is already past.
      * The message says which, and is phrased for the person who typed it.
      */
+    @ExceptionHandler(DesignNotFoundException.class)
+    public ProblemDetail onDesignNotFound(DesignNotFoundException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());
+        problem.setTitle(HttpStatus.NOT_FOUND.getReasonPhrase());
+        return problem;
+    }
+
+    @ExceptionHandler(DesignNotEditableException.class)
+    public ProblemDetail onDesignNotEditable(DesignNotEditableException e) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, e.getMessage());
+        problem.setTitle(HttpStatus.FORBIDDEN.getReasonPhrase());
+        return problem;
+    }
+
     @ExceptionHandler(InvalidLinkException.class)
     public ProblemDetail onInvalidLink(InvalidLinkException e) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());

@@ -62,6 +62,16 @@ public class QrCodeService {
                 prepared.options());
     }
 
+    /**
+     * Checks that a style could be rendered, without rendering it: images decode within their
+     * limits, a gradient contrasts with the background, a frame's text can be set. What depends
+     * on the payload, such as whether a frame leaves enough quiet zone for the code, is checked
+     * when the code is rendered.
+     */
+    public void validate(QrStyle style) {
+        RenderOptions.from(style, LogoImage.decode(style == null ? null : style.logo()));
+    }
+
     private record Prepared(BitMatrix matrix, RenderOptions options) {
     }
 

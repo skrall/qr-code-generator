@@ -73,6 +73,9 @@ describe('App with a short link', () => {
       if (url === '/api/me') {
         return json({ name: 'operator', operator: true })
       }
+      if (url === '/api/designs') {
+        return json([])
+      }
       if (url === '/api/links') {
         return json(stored, 201)
       }
@@ -142,6 +145,9 @@ describe('App for a viewer', () => {
         const url = String(input)
         if (url === '/api/me') {
           return json({ name: 'reader', operator: false })
+        }
+        if (url === '/api/designs') {
+          return json([])
         }
         if (url === '/api/qr-codes/check') {
           return json({ verdict: 'PASS', version: 3, modules: 29, trials: [], hints: [] })
