@@ -56,6 +56,15 @@ bundled font, line breaking and kerning. Both renderers fill the card, the borde
 outlines, then draw the code translated into place. The gradient and the custom-eye clip paths
 are in user space, so they move with the code in both formats.
 
+A transparent background is a style flag, not a colour: the renderers skip every fill of the
+background colour. The PNG starts at alpha 0 and is never painted there; the SVG has no background
+rect. The one-module gap of each eye, normally painted back in the background colour, is cleared
+instead: `PngQrRenderer` fills it with `AlphaComposite.Clear` and `SvgQrRenderer` masks it out of the
+outer shape, for the standard eyes and for `CUSTOM` artwork alike. A frame's card and bleed are left
+unpainted too. `background` still names the surface the code is meant for, so the gradient check,
+the artwork adjustment and the scan check, which flattens the image over that colour before reading
+it, all work as before.
+
 ## Payload types
 
 The server encodes whatever string it is sent; each content type is a builder in

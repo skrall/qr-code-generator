@@ -16,6 +16,9 @@ by the same process.
   set in a bundled font, so a PNG and an SVG of the same card match.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
+- **Transparent backgrounds** — leave the background unpainted, in PNG and SVG, so the code sits
+  on your own artwork. The corner gaps are transparent too; the scan check reads the code on the
+  background colour it was designed for.
 - **Every common payload** — text, URL, app store link, email, phone, SMS, WiFi (including hidden
   and WPA3-only networks), vCard, MeCard, iCalendar event, geo, bitcoin and SEPA credit transfer
   (EPC QR code, with IBAN checking).

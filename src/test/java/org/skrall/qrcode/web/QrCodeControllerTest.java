@@ -20,6 +20,10 @@ import org.springframework.test.web.servlet.MvcResult;
 @AutoConfigureMockMvc
 class QrCodeControllerTest {
 
+    /** A 1×1 white PNG. */
+    private static final String TINY_PNG = "data:image/png;base64,"
+            + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -167,6 +171,35 @@ class QrCodeControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("data URL")));
+    }
+
+    @Test
+    void rendersATransparentBackground() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/qr-codes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello","style":{"size":256,"transparentBackground":true}}"""))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(
+                new java.io.ByteArrayInputStream(result.getResponse().getContentAsByteArray()));
+        assertThat(image.getRGB(0, 0) >>> 24).isZero();
+    }
+
+    @Test
+    void rejectsABackgroundImageWithATransparentBackground() throws Exception {
+        for (String path : new String[] {"/api/qr-codes", "/api/qr-codes/check"}) {
+            mockMvc.perform(post(path)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"data":"hello","style":{"transparentBackground":true,
+                                     "backgroundImage":{"dataUrl":"%s"}}}""".formatted(TINY_PNG)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                    .andExpect(jsonPath("$.detail").value(
+                            org.hamcrest.Matchers.containsString("style.transparentBackground")));
+        }
     }
 
     @Test

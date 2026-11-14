@@ -115,12 +115,52 @@ class ScanCheckerTest {
         assertThat(result.hints()).anySatisfy(hint -> assertThat(hint).contains("short link"));
     }
 
+    @Test
+    void aTransparentDarkOnLightCodePasses() {
+        ScanCheckResponse result = check(URL, transparent("#101820", "#ffffff"));
+
+        assertThat(result.verdict()).isEqualTo(ScanVerdict.PASS);
+        assertThat(result.trials()).allMatch(ScanTrial::decoded);
+        assertThat(result.hints()).isEmpty();
+    }
+
+    @Test
+    void aTransparentCodeIsJudgedOnItsDeclaredBackground() {
+        // Light modules on a transparent background. Over white they would vanish; over the
+        // dark background the design is meant for, they read, capped as any inverted code is.
+        ScanCheckResponse result = check(URL, transparent("#f8fafc", "#0f172a"));
+        ScanCheckResponse opaque = check(URL, new QrStyle(600, 4, ErrorCorrection.QUARTILE,
+                "#f8fafc", null, "#0f172a", null, ModuleShape.SQUARE, FinderShape.SQUARE, null,
+                null, null, null, false));
+
+        assertThat(result.verdict()).isEqualTo(ScanVerdict.MARGINAL);
+        assertThat(trial(result, "rendered").decoded()).isTrue();
+        assertThat(result.trials()).isEqualTo(opaque.trials());
+        assertThat(result.hints().get(0)).contains("lighter than the background");
+        assertThat(result.hints()).last().satisfies(hint -> assertThat(hint)
+                .contains("transparent").contains("#0f172a"));
+    }
+
+    @Test
+    void aFaintTransparentCodeStillFailsOnItsBackground() {
+        // Grey on a mid-grey background: transparent pixels must not read as white paper.
+        ScanCheckResponse result = check(URL, transparent("#666666", "#888888"));
+
+        assertThat(result.verdict()).isEqualTo(ScanVerdict.FAIL);
+        assertThat(result.hints().get(0)).contains("close in brightness");
+    }
+
     private ScanCheckResponse check(String data, QrStyle style) {
         return service.check(new QrCodeRequest(data, style));
     }
 
     private static ScanTrial trial(ScanCheckResponse result, String name) {
         return result.trials().stream().filter(t -> t.name().equals(name)).findFirst().orElseThrow();
+    }
+
+    private static QrStyle transparent(String foreground, String background) {
+        return new QrStyle(600, 4, ErrorCorrection.QUARTILE, foreground, null, background, null,
+                ModuleShape.SQUARE, FinderShape.SQUARE, null, null, null, null, true);
     }
 
     private static QrStyle style(int size, int margin, ErrorCorrection level, String foreground,

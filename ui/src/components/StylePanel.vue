@@ -314,6 +314,26 @@ function isActive(preset: Preset): boolean {
       </p>
     </div>
 
+    <div class="control transparent-panel">
+      <label class="checkbox">
+        <input
+          v-model="qrStyle.transparentBackground"
+          type="checkbox"
+          aria-label="Transparent background"
+          :disabled="qrStyle.backgroundImage !== null && !qrStyle.transparentBackground"
+        />
+        <span>Transparent background</span>
+      </label>
+      <p v-if="qrStyle.backgroundImage !== null" class="field-help">
+        Remove the background image to leave the background transparent.
+      </p>
+      <p v-else-if="qrStyle.transparentBackground" class="field-help">
+        Only the code is drawn, so it can sit on your own artwork. Place it on a surface close to
+        the background colour, which the scan check assumes. A logo keeps its plate, and a frame
+        keeps its border and text but not its card.
+      </p>
+    </div>
+
     <div class="control-grid">
       <label class="control">
         <span class="control-label">

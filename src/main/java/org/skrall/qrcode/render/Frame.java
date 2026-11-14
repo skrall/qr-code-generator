@@ -33,7 +33,9 @@ import org.skrall.qrcode.model.QrFrame;
  * @param height            the canvas height, bleed included
  * @param codeX             the left edge of the code, quiet zone included
  * @param codeY             the top edge of the code, quiet zone included
- * @param background        the card colour, which also fills the bleed
+ * @param background        the card colour, which also fills the bleed; with a transparent
+ *                          background the card is not painted and this is the code's background,
+ *                          the surface the card is meant to sit on
  * @param border            the border ring, or {@code null} for none
  * @param borderColor       the border colour
  * @param text              the title and caption outlines, or {@code null} for no text
@@ -101,6 +103,8 @@ public record Frame(
      * @param moduleInk  the modules' colour, or their gradient's start: the default text colour
      * @param inks       the luminances of everything drawn in the code, to decide whether the
      *                   card is light (or dark) enough to count as quiet zone
+     * @param transparent whether the card is left unpainted. Its colour is then ignored: what
+     *                   shows through is the surface the code sits on, which is {@code background}
      * @return the frame, or {@code null} when none was requested
      * @throws FrameException when the text needs characters the font lacks, or the canvas would
      *                        be too large
@@ -110,13 +114,14 @@ public record Frame(
             int size,
             Color background,
             Color moduleInk,
-            DoubleSummaryStatistics inks) {
+            DoubleSummaryStatistics inks,
+            boolean transparent) {
 
         if (source == null) {
             return null;
         }
 
-        Color card = RenderOptions.parse(source.background(), background);
+        Color card = transparent ? background : RenderOptions.parse(source.background(), background);
         Color textColor = RenderOptions.parse(source.textColor(), moduleInk);
         Color borderColor = RenderOptions.parse(source.borderColor(), textColor);
 

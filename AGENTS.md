@@ -48,6 +48,10 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - A frame's layout and text outlines come from `Frame`; both renderers fill those shapes and
   translate the code into place. Don't set frame text with SVG `<text>` or a system font: the
   formats would stop matching. Keep frame lengths whole pixels so the code's grid is unchanged.
+- `transparentBackground` skips every background fill, the frame's card included, and clears each
+  eye's gap (PNG: `AlphaComposite.Clear`; SVG: a mask over the outer shape) rather than painting
+  it. `background` stays the declared surface: contrast checks use it, and `ScanChecker` flattens
+  over it, not over white. A background image is rejected with it; the logo plate stays opaque.
 - Frame text is set in the bundled Inter (`src/main/resources/fonts`, OFL). Text it cannot draw is
   rejected, not drawn as boxes. Swapping the font changes which text is accepted.
 
