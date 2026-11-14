@@ -54,8 +54,9 @@ public record RenderOptions(
         Gradient gradient = Gradient.from(source.gradient(), background);
         FinderShape finderShape =
                 source.finderShape() == null ? FinderShape.SQUARE : source.finderShape();
+        Color moduleInk = gradient == null ? foreground : gradient.start();
         FinderArtworkImage finderArtwork = finderShape == FinderShape.CUSTOM
-                ? FinderArtworkImage.decode(source.finderArtwork(), finderColor, background)
+                ? FinderArtworkImage.decode(source.finderArtwork(), finderColor, background, moduleInk)
                 : null;
         if (finderShape == FinderShape.CUSTOM && finderArtwork == null) {
             finderShape = FinderShape.SQUARE;
@@ -66,7 +67,6 @@ public record RenderOptions(
         DoubleSummaryStatistics inks = finderArtwork == null
                 ? new DoubleSummaryStatistics()
                 : Images.luminances(finderArtwork.image());
-        Color moduleInk = gradient == null ? foreground : gradient.start();
         inks.accept(Images.luminance(moduleInk));
         if (gradient != null) {
             inks.accept(Images.luminance(gradient.end()));

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import type {
   ErrorCorrection,
   FinderShape,
@@ -8,6 +9,7 @@ import type {
 } from '../api/client'
 import BackgroundImagePanel from './BackgroundImagePanel.vue'
 import FinderArtworkPanel from './FinderArtworkPanel.vue'
+import { createInverter, isInverted } from '../qr/invert'
 
 /**
  * The prop is deliberately not called `style`.
@@ -138,6 +140,14 @@ function setGradient(enabled: boolean): void {
     : null
 }
 
+/** Light modules on dark, and back. The rules live in `qr/invert.ts`. */
+const invert = createInverter()
+const invertNotice = ref<string | null>(null)
+
+function invertColours(): void {
+  invertNotice.value = invert(props.qrStyle)
+}
+
 function isActive(preset: Preset): boolean {
   return (
     props.qrStyle.moduleShape === preset.moduleShape &&
@@ -241,6 +251,21 @@ function isActive(preset: Preset): boolean {
           </option>
         </select>
       </label>
+    </div>
+
+    <div class="control invert-control">
+      <div class="button-row">
+        <button type="button" @click="invertColours">Invert colours</button>
+      </div>
+      <p class="field-help">
+        Swaps the foreground and background, and mirrors the corner colour and gradient to match.
+        Click again to undo. The logo plate, frame and images are left as they are.
+      </p>
+      <p v-if="isInverted(qrStyle)" class="field-help invert-caveat">
+        Light modules on a dark background read on most phone cameras, but many scanner apps
+        expect dark on light, so the scan check rates this as “May not scan on every phone”.
+      </p>
+      <p v-if="invertNotice" class="field-help" role="status">{{ invertNotice }}</p>
     </div>
 
     <div class="control gradient-panel">

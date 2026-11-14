@@ -28,8 +28,12 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
     private static final int MAX_EMBEDDED_SIDE = 512;
 
 
+    /**
+     * @param modules the modules' colour (the gradient's start when there is one): the artwork is
+     *                pushed to the same side of the background as the modules
+     */
     public static FinderArtworkImage decode(
-            QrFinderArtwork artwork, Color finderColor, Color background) {
+            QrFinderArtwork artwork, Color finderColor, Color background, Color modules) {
 
         if (artwork == null) {
             return null;
@@ -37,7 +41,7 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
 
         BufferedImage source = ImageDataUrl.decode(
                 artwork.dataUrl(), "style.finderArtwork", "finder artwork", FinderArtworkException::new);
-        BufferedImage adjusted = adjust(Images.flatten(fit(source), finderColor), background);
+        BufferedImage adjusted = adjust(Images.flatten(fit(source), finderColor), background, modules);
         return new FinderArtworkImage(
                 adjusted, Images.pngDataUrl(adjusted, "Could not encode the finder artwork."));
     }
@@ -68,12 +72,19 @@ public record FinderArtworkImage(BufferedImage image, String dataUrl) {
     /**
      * Pushes every pixel far enough from the background to keep the rings distinct.
      *
-     * <p>On a light background the pixels are darkened, preserving hue; on a dark background they
-     * are lightened towards white. The image is already opaque, so every drawn pixel is covered.
+     * <p>When the modules are darker than the background the pixels are darkened, preserving hue;
+     * when they are lighter (an inverted code) the pixels are lightened towards white. The rings
+     * must sit on the same side of the background as the modules, or a reader sees eyes that do
+     * not match the code. Only when the modules match the background, which no reader can scan
+     * anyway, does the background's own brightness decide. The image is already opaque, so every
+     * drawn pixel is covered.
      */
-    private static BufferedImage adjust(BufferedImage source, Color background) {
+    private static BufferedImage adjust(BufferedImage source, Color background, Color modules) {
         double backgroundLuminance = Images.luminance(background);
-        boolean lightBackground = backgroundLuminance >= 128;
+        double modulesLuminance = Images.luminance(modules);
+        boolean lightBackground = modulesLuminance == backgroundLuminance
+                ? backgroundLuminance >= 128
+                : modulesLuminance < backgroundLuminance;
 
         int width = source.getWidth();
         int height = source.getHeight();

@@ -41,6 +41,12 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   finder artwork, so the artwork is decoded first) before the modules are drawn. Keep that order: the
   image goes down first, then modules and eyes, so the finder gaps and logo plate stay solid. The
   SVG renderer embeds the washed PNG, not the original upload.
+- On an inverted code (modules lighter than the background) the wash also keeps the image within
+  `BackgroundImage.INVERTED_REACH` of the background. ZXing binarizes before inverting and treats a
+  flat area as light, so the plain 96/255 rule leaves a quiet zone that reads as modules.
+  `InvertedCodeTest` sweeps that; rerun a sweep before loosening it.
+- Finder artwork is pushed to the modules' side of the background, not decided by the
+  background's own brightness, or a mid-grey background gets rings that do not match the code.
 - A gradient's line and circle come from `Gradient`, which both renderers read; don't compute
   gradient geometry inside a renderer. It spans the canvas in user space, not each module. Its
   check is on the two stops only, which is exact because both formats interpolate in sRGB and

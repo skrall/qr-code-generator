@@ -267,3 +267,112 @@ describe('StylePanel', () => {
     expect(style.size).toBe(900)
   })
 })
+
+describe('StylePanel invert colours', () => {
+  function invertButton(container: HTMLElement): HTMLButtonElement {
+    const button = [...container.querySelectorAll('button')].find(
+      (candidate) => candidate.textContent?.trim() === 'Invert colours',
+    )
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error('No Invert colours button')
+    }
+    return button
+  }
+
+  test('swaps the code colours and explains the scan check', async () => {
+    const style = reactive(freshStyle())
+    const container = mount(style)
+
+    expect(container.querySelector('.invert-caveat')).toBeNull()
+
+    invertButton(container).click()
+    await nextTick()
+
+    expect(style.foreground).toBe('#ffffff')
+    expect(style.background).toBe('#111827')
+    expect(style.finderColor).toBe('#adbeeb')
+    expect(container.querySelector('.invert-caveat')?.textContent).toContain(
+      'May not scan on every phone',
+    )
+  })
+
+  test('leaves the logo, frame and images alone', async () => {
+    const style = reactive(freshStyle())
+    style.logo = {
+      dataUrl: 'data:image/png;base64,AAAA',
+      sizePercent: 20,
+      paddingPercent: 8,
+      radiusPercent: 25,
+      background: '#ffffff',
+    }
+    style.backgroundImage = { dataUrl: 'data:image/png;base64,BBBB' }
+    const before = JSON.stringify({ logo: style.logo, frame: style.frame, image: style.backgroundImage })
+    const container = mount(style)
+
+    invertButton(container).click()
+    await nextTick()
+
+    expect(JSON.stringify({ logo: style.logo, frame: style.frame, image: style.backgroundImage })).toBe(
+      before,
+    )
+  })
+
+  test('a corner colour matching the foreground follows it', async () => {
+    const style = reactive(freshStyle())
+    style.finderColor = '#111827'
+    const container = mount(style)
+
+    invertButton(container).click()
+    await nextTick()
+
+    expect(style.finderColor).toBe('#ffffff')
+  })
+
+  test('inverts the gradient stops so they stay lighter than the new background', async () => {
+    const style = reactive(freshStyle())
+    style.gradient = { type: 'LINEAR', start: '#111827', end: '#3158c4', angle: 90, finders: true }
+    const container = mount(style)
+
+    invertButton(container).click()
+    await nextTick()
+
+    expect(style.gradient).toEqual({
+      type: 'LINEAR',
+      start: '#ffffff',
+      end: '#adbeeb',
+      angle: 90,
+      finders: true,
+    })
+  })
+
+  test('says so when a gradient has to be turned off', async () => {
+    const style = reactive(freshStyle())
+    style.foreground = '#ffffff'
+    style.gradient = { type: 'LINEAR', start: '#000000', end: '#202020', angle: 90, finders: false }
+    const container = mount(style)
+
+    invertButton(container).click()
+    await nextTick()
+
+    expect(style.gradient).toBeNull()
+    expect(container.textContent).toContain('so it was turned off')
+  })
+
+  test('a second click restores the exact colours, fallbacks included', async () => {
+    const style = reactive(freshStyle())
+    // #dddddd cannot stay a distinct accent on the dark side, so the first click replaces it.
+    style.finderColor = '#dddddd'
+    style.gradient = { type: 'RADIAL', start: '#7c3aed', end: '#0f766e', angle: 135, finders: false }
+    const original = JSON.parse(JSON.stringify(style)) as QrStyle
+    const container = mount(style)
+
+    invertButton(container).click()
+    await nextTick()
+    expect(style.finderColor).toBe('#ffffff')
+
+    invertButton(container).click()
+    await nextTick()
+    expect(JSON.parse(JSON.stringify(style))).toEqual(original)
+    expect(container.querySelector('.invert-caveat')).toBeNull()
+  })
+})

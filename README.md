@@ -16,6 +16,9 @@ by the same process.
   set in a bundled font, so a PNG and an SVG of the same card match.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
+- **Inverted codes** — one click turns dark-on-light into light-on-dark, corner colour and
+  gradient included, and a second click turns it back. The scan check flags that some scanner
+  apps cannot read them.
 - **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
   bitcoin.
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
