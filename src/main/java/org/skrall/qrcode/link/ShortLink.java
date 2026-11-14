@@ -44,6 +44,12 @@ public class ShortLink {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    @Column(name = "gone_url", length = 2048)
+    private String goneUrl;
+
+    @Column(name = "gone_message", length = 280)
+    private String goneMessage;
+
     protected ShortLink() {
         // For Hibernate.
     }
@@ -64,6 +70,15 @@ public class ShortLink {
     public void update(String targetUrl, Instant expiresAt) {
         this.targetUrl = targetUrl;
         this.expiresAt = expiresAt;
+    }
+
+    /**
+     * Sets what a scan gets once the link has expired or been deleted: a fallback destination,
+     * a message for the 410 page, or neither. The caller validates both.
+     */
+    public void setGoneOptions(String goneUrl, String goneMessage) {
+        this.goneUrl = goneUrl;
+        this.goneMessage = goneMessage;
     }
 
     /** Counts a scan. The caller decides whether the link is still usable. */
@@ -114,5 +129,13 @@ public class ShortLink {
 
     public Instant getDeletedAt() {
         return deletedAt;
+    }
+
+    public String getGoneUrl() {
+        return goneUrl;
+    }
+
+    public String getGoneMessage() {
+        return goneMessage;
     }
 }

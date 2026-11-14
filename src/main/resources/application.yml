@@ -76,6 +76,12 @@ app:
   # a code scanned elsewhere has to point at a LAN address or the name behind a reverse proxy.
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
 
+  # Where a scan of an expired or deleted short link goes when the link has neither a fallback
+  # URL nor a message of its own. Blank (the default) shows the "no longer active" page with
+  # 410 Gone instead.
+  links:
+    gone-url: ${APP_LINKS_GONE_URL:}
+
 # Loopback only by default: this is a local tool, and a QR generator on an open port invites
 # strangers to use it as a rendering service. Override SERVER_ADDRESS when it should be
 # reachable from another machine.

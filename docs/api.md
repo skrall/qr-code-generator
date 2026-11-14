@@ -368,7 +368,9 @@ curl -X POST http://localhost:8080/api/links \
   "createdAt": "2026-11-11T20:00:00Z",
   "expiresAt": "2026-12-01T00:00:00Z",
   "hitCount": 0,
-  "lastHitAt": null
+  "lastHitAt": null,
+  "goneUrl": null,
+  "goneMessage": null
 }
 ```
 
@@ -381,9 +383,37 @@ that has already been printed can be repointed at a new destination. An expired 
 revived by giving it a future expiry or by clearing it. `DELETE /api/links/{code}` soft deletes
 one, after which its code answers `410 Gone` rather than `404`.
 
+`goneUrl` and `goneMessage` (both optional, on create and edit) say what a scan gets once the link
+has expired or been deleted:
+
+- `goneUrl` — redirect there instead of showing a page. Checked exactly like `url`: absolute
+  `http`/`https` only, at most 2048 characters, no credentials, non-ASCII percent-encoded.
+- `goneMessage` — plain text, at most 280 characters, shown on the page instead of the default
+  wording. Line breaks are kept; other control characters are rejected. Markup is not
+  interpreted: the text is HTML-escaped when shown.
+
+Blank values mean "none". An edit replaces both, like the expiry: leaving one out clears it. Only
+an OPERATOR may set them, as with every other change to a link.
+
 `GET /r/{code}` is the public redirect. It answers `302 Found` with `Cache-Control: no-store`, so
-every scan reaches the server and the hit count stays honest. An unknown code is `404`; an expired
-or deleted one is `410`.
+every scan reaches the server and the hit count stays honest. Otherwise:
+
+| Code | Answer |
+|---|---|
+| Live | `302` to the destination, counted as a hit |
+| Expired or deleted, with a `goneUrl` | `302` to the `goneUrl`, not counted |
+| Expired or deleted, with a `goneMessage` | `410` page showing the message |
+| Expired or deleted, neither set, `app.links.gone-url` set | `302` to that URL, not counted |
+| Expired or deleted, otherwise | `410` page with the default wording |
+| Unknown | `404` page |
+
+`app.links.gone-url` (`APP_LINKS_GONE_URL`) is an optional site-wide fallback, validated like a
+destination at startup. It never applies to an unknown code. The `404` and `410` pages are small
+self-contained HTML (inline CSS, light and dark, sized for a phone) that never show the old
+destination. Both carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
+`X-Robots-Tag: noindex`, `X-Content-Type-Options: nosniff` and a
+`Content-Security-Policy` of `default-src 'none'` that allows only the page's own stylesheet by
+hash: no scripts, images, frames or forms. A fallback redirect has the same headers as a live one.
 
 The short URL is composed from `app.public-base-url`, which defaults to `http://localhost:8080`.
 Set `APP_PUBLIC_BASE_URL` to the address a scanner can reach — a LAN address, or the public name

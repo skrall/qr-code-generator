@@ -33,6 +33,8 @@ x-app-env: &app-env
   SERVER_ADDRESS: "0.0.0.0"
   # The address short links are composed from. It must be one the scanning phone can reach.
   APP_PUBLIC_BASE_URL: ${APP_PUBLIC_BASE_URL:-http://localhost:8080}
+  # Where an expired or deleted short link sends a scan when it has no fallback or message.
+  APP_LINKS_GONE_URL: ${APP_LINKS_GONE_URL:-}
   # Sign-in. basic is the default; viewer and operator users share QR_CODE_PASSWORD.
   APP_SECURITY_MODE: ${APP_SECURITY_MODE:-basic}
   APP_SECURITY_VIEWER_USERS: ${APP_SECURITY_VIEWER_USERS:-}

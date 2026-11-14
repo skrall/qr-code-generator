@@ -151,6 +151,13 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   a printed code that stops working is not the same as an address that never existed.
 - Editing a link changes its destination and expiry but never its code. The code is what a
   printed QR image carries, so replacing it would defeat the point of editing.
+- A gone link's options decide what a scan of it gets: its `goneUrl` (302, not counted), else its
+  `goneMessage` on the 410 page, else `app.links.gone-url`, else the default 410 page. An unknown
+  code is always the 404 page. Keep 410 for a gone link that has nowhere to send the scan.
+- `goneMessage` is user input rendered into HTML: `RedirectController.page` escapes everything it
+  writes, and the page's CSP allows only its own stylesheet by hash. Changing `STYLE` changes the
+  hash, which is computed, so no manual update is needed; adding a script or image means
+  widening the CSP on purpose. `goneUrl` goes through the same `validUrl` as the destination.
 
 ## Batch
 

@@ -4,6 +4,7 @@ import { createLink, type ShortLink } from '../api/client'
 import { copyText } from '../clipboard'
 import { formatDate } from '../format'
 import { normalizeUrl } from '../qr/types'
+import GoneOptionsFields from './GoneOptionsFields.vue'
 
 /**
  * Creates a stored short link and hands the resulting URL to the parent.
@@ -31,6 +32,8 @@ type Expiry = 'never' | '1d' | '7d' | '30d' | 'custom'
 const destination = ref('')
 const expiry = ref<Expiry>('never')
 const customExpiry = ref('')
+const goneUrl = ref('')
+const goneMessage = ref('')
 const busy = ref(false)
 const error = ref('')
 const created = ref<ShortLink | null>(null)
@@ -77,6 +80,8 @@ async function create(): Promise<void> {
     const link = await createLink({
       url: normalizeUrl(destination.value),
       expiresAt: expiresAt(),
+      goneUrl: normalizeUrl(goneUrl.value),
+      goneMessage: goneMessage.value,
     })
     created.value = link
     emit('created', link)
@@ -105,9 +110,9 @@ watch(destination, () => {
   emit('draft', normalizeUrl(destination.value))
 })
 
-// Expiry does not change the draft payload, but it does invalidate a link that was created with
-// the previous setting.
-watch([expiry, customExpiry], () => {
+// Expiry and the gone options do not change the draft payload, but they do invalidate a link
+// that was created with the previous settings.
+watch([expiry, customExpiry, goneUrl, goneMessage], () => {
   if (!created.value) {
     return
   }
@@ -154,6 +159,12 @@ watch([expiry, customExpiry], () => {
         That time is already past.
       </span>
     </div>
+
+    <GoneOptionsFields
+      v-model:gone-url="goneUrl"
+      v-model:gone-message="goneMessage"
+      id-prefix="shortlink"
+    />
 
     <div class="button-row">
       <button type="submit" class="primary" :disabled="!canCreate">
