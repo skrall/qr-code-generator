@@ -29,6 +29,7 @@ import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.QrCodeRequest;
 import org.skrall.qrcode.model.QrFormat;
 import org.skrall.qrcode.model.QrStyle;
+import org.skrall.qrcode.render.PdfQrRenderer;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.SvgQrRenderer;
 
@@ -94,7 +95,7 @@ class CapacityParityTest {
     };
 
     private final QrCodeService service =
-            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker());
+            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new PdfQrRenderer(), new ScanChecker());
 
     @Test
     void theCommittedFixtureMatchesZxing() throws IOException, WriterException {
