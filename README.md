@@ -16,8 +16,9 @@ by the same process.
   set in a bundled font, so a PNG and an SVG of the same card match.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
-- **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
-  bitcoin.
+- **Every common payload** — text, URL, app store link, email, phone, SMS, WiFi (including hidden
+  and WPA3-only networks), vCard, MeCard, iCalendar event, geo, bitcoin and SEPA credit transfer
+  (EPC QR code, with IBAN checking).
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
   everyone who signs in, and export or import it as a JSON file.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional

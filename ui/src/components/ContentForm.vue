@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { QrField, QrType } from '../qr/types'
 
 const props = defineProps<{
@@ -8,6 +9,24 @@ const props = defineProps<{
 
 function inputId(field: QrField): string {
   return `${props.type.id}-${field.key}`
+}
+
+/** Values that were entered but cannot be encoded; the type's builder yields nothing meanwhile. */
+const problems = computed(() => props.type.validate?.(props.model) ?? {})
+
+/** Problems about the payload as a whole rather than one field, such as its total size. */
+const general = computed(() => {
+  const keys = new Set(props.type.fields.map((field) => field.key))
+  return Object.entries(problems.value)
+    .filter(([key]) => !keys.has(key))
+    .map(([, message]) => message)
+})
+
+function describedBy(field: QrField): string | undefined {
+  if (problems.value[field.key]) {
+    return `${inputId(field)}-problem`
+  }
+  return field.help ? `${inputId(field)}-help` : undefined
 }
 </script>
 
@@ -57,10 +76,17 @@ function inputId(field: QrField): string {
           :maxlength="field.maxLength"
           :autocomplete="field.autocomplete ?? 'off'"
           :step="field.kind === 'number' ? 'any' : undefined"
+          :aria-invalid="problems[field.key] ? 'true' : undefined"
+          :aria-describedby="describedBy(field)"
         />
 
-        <span v-if="field.help" class="field-help">{{ field.help }}</span>
+        <span v-if="problems[field.key]" :id="`${inputId(field)}-problem`" class="field-help error-text" role="alert">
+          {{ problems[field.key] }}
+        </span>
+        <span v-else-if="field.help" :id="`${inputId(field)}-help`" class="field-help">{{ field.help }}</span>
       </div>
     </template>
+
+    <p v-for="message in general" :key="message" class="field-help error-text" role="alert">{{ message }}</p>
   </div>
 </template>
