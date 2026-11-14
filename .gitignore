@@ -21,3 +21,6 @@ data/
 
 # Local secrets for docker-compose.yml; .env.example is the committed template.
 .env
+
+# Claude Code: local settings and the worktrees agents work in.
+.claude/
