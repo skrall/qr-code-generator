@@ -20,6 +20,7 @@ ui/src/
 ├── qr/types.ts     the payload builders for every supported content type
 ├── api/client.ts   the typed API client and the logo file reader
 ├── components/     content form, style panel, logo panel, preview, short links
+├── embed.ts        "Copy as…" snippet builders (alt text, data URLs, inline SVG ids)
 └── App.vue         state, debounced preview and downloads
 ```
 
@@ -64,6 +65,33 @@ outer shape, for the standard eyes and for `CUSTOM` artwork alike. A frame's car
 unpainted too. `background` still names the surface the code is meant for, so the gradient check,
 the artwork adjustment and the scan check, which flattens the image over that colour before reading
 it, all work as before.
+
+## Embed snippets
+
+The preview's "Copy as…" menu (`EmbedMenu.vue`, builders in `ui/src/embed.ts`) fetches the image
+with the same render call as a download, so a snippet is byte-for-byte the file a download would
+save, not the preview's object URL. It is disabled whenever the downloads are: while the payload is
+a short link draft, while rendering, and after an error.
+
+- **`<img>`, data URL and linked `<img>`** use the PNG. `width` and `height` come from the PNG's
+  IHDR chunk, since a frame makes the image larger than `size`. The link wrapper is offered only
+  for an http(s) payload, a short link included.
+- **Alt text** names what the code is for and leaves out anything private: a URL is reduced to its
+  host (a query can carry tokens), a WiFi code names the network but never the password, SMS and
+  email bodies, IBANs, amounts and free text are left out.
+- **Inline SVG** drops the XML declaration, puts the alt text in `<title>`, and prefixes every `id`
+  with a random `qrxxxxxx-` along with each `url(#…)` and `href="#…"` that points at one. The
+  renderer's fixed ids (`qr-gradient`, `finder-outer`, `finder-gap-0`…) are right for a file, but
+  inline every id shares the page, so a second code would paint with the first one's gradient or
+  mask. This is done in the browser rather than as a server option: only the pasted copy needs
+  it, the download and the API stay unchanged, and the rewrite covers any id a renderer adds later.
+  Embedded images are `data:` URLs, so the reference rewrite never touches them.
+- **Size.** A snippet over 100 KB, usually from a logo or background image, is still copied, with a
+  note suggesting inline SVG or hosting the file.
+- **Clipboard.** If the Clipboard API is missing (plain HTTP on a LAN) or refuses, the snippet is
+  shown in a read-only, preselected textarea to copy by hand, with the reason in the live region.
+- **No Markdown.** A Markdown image would need a data URL, which GitHub and most sanitizing
+  renderers strip, or a hosted file, which this tool does not provide.
 
 ## Payload types
 
