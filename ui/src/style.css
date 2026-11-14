@@ -145,6 +145,11 @@ body {
   gap: 10px;
 }
 
+.history-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .view-nav {
   display: inline-flex;
   padding: 3px;

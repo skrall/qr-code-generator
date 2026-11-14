@@ -19,7 +19,10 @@ src/main/resources/db/migration/
 ui/src/
 ├── qr/types.ts     the payload builders for every supported content type
 ├── api/client.ts   the typed API client and the logo file reader
-├── components/     content form, style panel, logo panel, preview, short links
+├── components/     content form, style panel, logo panel, preview, short links, share link
+├── history.ts      undo/redo history, snapshots and the keyboard shortcut rules
+├── editorHistory.ts the history wired to the editor's reactive state and the keyboard
+├── share.ts        the share link format: encode, decode and check
 └── App.vue         state, debounced preview and downloads
 ```
 
@@ -84,6 +87,46 @@ The SEPA type checks the IBAN's and an RF reference's mod-97 check digits and ev
 in the EPC guidelines, since a banking app rejects a code that is off by one line. The guidelines
 also recommend error correction level M for these codes.
 
+
+## Undo and share links
+
+**History.** `ui/src/history.ts` keeps up to 100 snapshots of the editor: the content tab, every
+tab's values and the style. A change restarts a 450 ms timer and the step is recorded once the
+editor is quiet, so dragging a slider or typing a word is one step; undoing records a pending
+change first. A snapshot copies plain objects and shares strings, so an image held as a data URL
+is never copied: taking and comparing one costs about 10 µs with two 2.7 MB images, against about
+2.6 ms for `JSON.stringify` of the same state. That is cheap enough to compare on every change,
+which is how a restore, echoing back through the deep watcher, is recognised as no edit and
+records nothing. A new edit after an undo discards the undone steps. Applying a share link calls
+`commit` so it is its own step; loading a design, importing a file or inverting colours are
+single changes and become one step through the timer.
+
+Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z or Ctrl+Y redo, except when focus is in a text input, a
+textarea, a select or an editable element, whose native undo is left alone. Sliders, checkboxes
+and buttons have no native undo, so the shortcut applies there.
+
+**Share links.** The state goes in the URL fragment, which browsers never send, so the server
+and its logs never see it:
+
+```
+#share=v1.z.<base64url(deflate-raw(JSON))>    CompressionStream
+#share=v1.j.<base64url(JSON)>                 browsers without CompressionStream
+#design=<id>                                  a saved design, loaded with GET /api/designs/{id}
+```
+
+The JSON is `{"style": {…}, "content"?: {"type": "wifi", "values": {…}}}`. The style is the API
+style without images; content is only added when "Include content" is ticked, and never holds a
+field marked `secret` in `qr/types.ts` (the WiFi password). Images would make the link megabytes
+long, so a style with any is shared as a `#design=` link to the saved design on screen, which the
+server's visibility rules then govern: someone else's private design answers 404 and the UI says
+it was not found or not shared. Links are capped at 8,000 characters both ways, and a link may
+inflate to at most 64 KB. Decoding checks the version, every field's type and the content's
+type and keys, and ignores images and secrets a crafted link might carry.
+
+On startup, and on a `hashchange`, the fragment is applied, then removed with
+`history.replaceState`. From then on the editor and its undo history hold the state; leaving
+the fragment would make a reload throw later edits away, and would keep content in the address
+bar. A damaged, oversized or newer-version link is reported in the Share card and changes nothing.
 
 ## Notes
 

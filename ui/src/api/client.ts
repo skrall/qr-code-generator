@@ -329,9 +329,19 @@ export interface DesignInput {
   style?: QrStyle
 }
 
+/** A refused request, with its status for callers that word some answers themselves. */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message)
+  }
+}
+
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    throw new Error(await problemDetail(response))
+    throw new ApiError(await problemDetail(response), response.status)
   }
   return (await response.json()) as T
 }
