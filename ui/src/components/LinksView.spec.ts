@@ -56,6 +56,17 @@ async function flush(): Promise<void> {
   await nextTick()
 }
 
+/** Sets a text field or textarea the way typing would. */
+async function fill(container: HTMLElement, selector: string, value: string): Promise<void> {
+  const field = container.querySelector(selector)
+  if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) {
+    throw new Error(`No ${selector} field`)
+  }
+  field.value = value
+  field.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+}
+
 /** Long enough for the 250 ms search debounce to fire. */
 async function settle(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 300))
@@ -235,5 +246,49 @@ describe('LinksView', () => {
     expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/links?page=1&size=25')
     expect(container.textContent).toContain('Page 2 of 2')
     expect(button(container, 'Next').disabled).toBe(true)
+  })
+
+  test('edits the gone options, opened when the link already has one', async () => {
+    const stored = link({ goneUrl: null, goneMessage: 'Old message' })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(page([stored])))
+      .mockResolvedValueOnce(response(stored))
+      .mockResolvedValueOnce(response(page([stored])))
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount()
+    await flush()
+
+    button(container, 'Edit').click()
+    await nextTick()
+
+    const details = container.querySelector('.edit-dialog details.gone-options')
+    expect(details?.hasAttribute('open')).toBe(true)
+    const message = container.querySelector('#edit-link-gone-message')
+    expect(message instanceof HTMLTextAreaElement && message.value).toBe('Old message')
+
+    await fill(container, '#edit-link-gone-url', 'example.com/after')
+    await fill(container, '#edit-link-gone-message', '')
+    button(container, 'Save changes').click()
+    await flush()
+
+    const init = fetchMock.mock.calls[1]?.[1] as RequestInit
+    expect(JSON.parse(String(init.body))).toEqual({
+      url: 'https://example.com/one',
+      goneUrl: 'https://example.com/after',
+    })
+  })
+
+  test('keeps the gone options folded for a link without any', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response(page([link()]))))
+    const container = mount()
+    await flush()
+
+    button(container, 'Edit').click()
+    await nextTick()
+
+    expect(container.querySelector('.edit-dialog details.gone-options')?.hasAttribute('open')).toBe(
+      false,
+    )
   })
 })

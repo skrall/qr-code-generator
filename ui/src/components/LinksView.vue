@@ -4,6 +4,7 @@ import { deleteLink, listLinks, updateLink, type ShortLink } from '../api/client
 import { copyText } from '../clipboard'
 import { formatDate, toDateTimeInput } from '../format'
 import { normalizeUrl } from '../qr/types'
+import GoneOptionsFields from './GoneOptionsFields.vue'
 
 /**
  * The stored links, with a debounced search, an edit dialog and a two-step delete. A VIEWER sees
@@ -26,6 +27,8 @@ const copiedCode = ref<string | null>(null)
 const editing = ref<ShortLink | null>(null)
 const editTarget = ref('')
 const editExpiry = ref('')
+const editGoneUrl = ref('')
+const editGoneMessage = ref('')
 const editError = ref('')
 const saving = ref(false)
 
@@ -115,6 +118,8 @@ function startEdit(link: ShortLink): void {
   editing.value = link
   editTarget.value = link.targetUrl
   editExpiry.value = toDateTimeInput(link.expiresAt)
+  editGoneUrl.value = link.goneUrl ?? ''
+  editGoneMessage.value = link.goneMessage ?? ''
   editError.value = ''
 }
 
@@ -138,6 +143,8 @@ async function saveEdit(): Promise<void> {
     await updateLink(link.code, {
       url: normalizeUrl(editTarget.value),
       expiresAt: editExpiry.value ? new Date(editExpiry.value).toISOString() : null,
+      goneUrl: normalizeUrl(editGoneUrl.value),
+      goneMessage: editGoneMessage.value,
     })
     editing.value = null
     await load()
@@ -161,7 +168,8 @@ onUnmounted(() => {
       <div>
         <h2>Short links</h2>
         <p class="hint">
-          Destinations stored by the generator. A deleted code answers 410 Gone, not 404.
+          Destinations stored by the generator. An expired or deleted code answers 410 Gone, not
+          404, or redirects to the link's fallback if it has one.
         </p>
       </div>
       <label class="search-field" for="links-search">
@@ -271,6 +279,12 @@ onUnmounted(() => {
           </span>
           <span v-else class="field-help">Leave empty for a link that never expires.</span>
         </div>
+
+        <GoneOptionsFields
+          v-model:gone-url="editGoneUrl"
+          v-model:gone-message="editGoneMessage"
+          id-prefix="edit-link"
+        />
 
         <p v-if="editError" class="error" role="alert">{{ editError }}</p>
 

@@ -97,6 +97,10 @@ export interface ShortLink {
   expiresAt: string | null
   hitCount: number
   lastHitAt: string | null
+  /** Where a scan goes once the link has expired or been deleted, instead of the 410 page. */
+  goneUrl?: string | null
+  /** Plain text shown on the 410 page instead of the default wording. */
+  goneMessage?: string | null
 }
 
 export interface LinkPage {
@@ -110,6 +114,23 @@ export interface LinkInput {
   url: string
   /** ISO timestamp, or null for a link that never expires. */
   expiresAt: string | null
+  /** Fallback for an expired or deleted link; empty or absent for the 410 page. */
+  goneUrl?: string | null
+  /** Text for the 410 page; empty or absent for the default wording. */
+  goneMessage?: string | null
+}
+
+/**
+ * The request body for a create or an edit. Empty options are left out: the server treats an
+ * absent option as "none", and an edit replaces the options, so leaving one out clears it.
+ */
+function linkBody(input: LinkInput): string {
+  return JSON.stringify({
+    url: input.url,
+    expiresAt: input.expiresAt ?? undefined,
+    goneUrl: input.goneUrl?.trim() || undefined,
+    goneMessage: input.goneMessage?.trim() || undefined,
+  })
 }
 
 /** The formats the server can decode, which is narrower than what a browser can display. */
@@ -241,7 +262,7 @@ export async function createLink(input: LinkInput, signal?: AbortSignal): Promis
   const response = await send('/api/links', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
+    body: linkBody(input),
     signal,
   })
 
@@ -265,7 +286,7 @@ export async function updateLink(
   const response = await send(`/api/links/${encodeURIComponent(code)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
+    body: linkBody(input),
     signal,
   })
 

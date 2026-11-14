@@ -51,11 +51,14 @@ public class LinkController {
             be an absolute http or https URL; other schemes are rejected so that a code cannot
             become a script or a data URL. The short URL is composed from the configured public
             base URL, so the caller does not have to know how this service is deployed.
+            `goneUrl` and `goneMessage` say what a scan gets once the link has expired or been
+            deleted: a redirect to the fallback, or the 410 page with the message.
             """)
     @ApiResponse(responseCode = "201", description = "The stored link")
     @ApiResponse(responseCode = "400", description = "The destination was rejected")
     public ResponseEntity<ShortLinkResponse> create(@Valid @RequestBody CreateLinkRequest request) {
-        ShortLink link = service.create(request.url(), request.expiresAt());
+        ShortLink link = service.create(request.url(), request.expiresAt(),
+                request.goneUrl(), request.goneMessage());
         // The short URL is the address of the thing that was created; there is no single-link
         // GET endpoint for /api/links/{code} to point at.
         return ResponseEntity.created(URI.create(properties.shortUrl(link.getCode())))
@@ -86,7 +89,8 @@ public class LinkController {
     @Operation(summary = "Edit a short link", description = """
             Changes the destination and expiry without changing the code. A code that has
             already been printed therefore starts pointing at the new destination. Deleted
-            links cannot be edited; an expired link can be revived with a future expiry.
+            links cannot be edited; an expired link can be revived with a future expiry. The
+            request replaces the expiry and the gone options: an omitted one is cleared.
             """)
     @ApiResponse(responseCode = "200", description = "The updated link")
     @ApiResponse(responseCode = "400", description = "The destination or expiry was rejected")
@@ -95,7 +99,8 @@ public class LinkController {
             @PathVariable String code,
             @Valid @RequestBody UpdateLinkRequest request) {
 
-        return service.update(code, request.url(), request.expiresAt())
+        return service.update(code, request.url(), request.expiresAt(),
+                        request.goneUrl(), request.goneMessage())
                 .map(link -> ResponseEntity.ok(ShortLinkResponse.from(link, properties)))
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
