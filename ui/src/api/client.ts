@@ -76,6 +76,11 @@ export interface QrStyle {
   finderArtwork: QrFinderArtwork | null
   logo: QrLogo | null
   frame: QrFrame | null
+  /**
+   * Leaves the background unpainted, so the code can sit on existing artwork. `background` is
+   * still the colour it is designed for, and what the contrast and scan checks use.
+   */
+  transparentBackground: boolean
 }
 
 export interface RenderRequest {

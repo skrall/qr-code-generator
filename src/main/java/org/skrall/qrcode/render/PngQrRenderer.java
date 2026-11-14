@@ -1,7 +1,8 @@
 package org.skrall.qrcode.render;
 
 import com.google.zxing.common.BitMatrix;
-import java.awt.Color;
+import java.awt.AlphaComposite;
+import java.awt.Composite;
 import java.awt.Graphics2D;
 import java.awt.Paint;
 import java.awt.RenderingHints;
@@ -61,14 +62,18 @@ public class PngQrRenderer {
             graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
 
             if (options.frame() != null) {
-                drawFrame(graphics, options.frame());
+                drawFrame(graphics, options.frame(), options.transparentBackground());
                 // The code is drawn in its own coordinates, as when unframed. The offset is whole
                 // pixels, so the modules land on the same grid, and the gradient paint moves too.
                 graphics.translate(options.frame().codeX(), options.frame().codeY());
             }
 
-            graphics.setColor(options.background());
-            graphics.fillRect(0, 0, options.size(), options.size());
+            // The image starts with every pixel at alpha 0, so a transparent background is
+            // simply never painted.
+            if (!options.transparentBackground()) {
+                graphics.setColor(options.background());
+                graphics.fillRect(0, 0, options.size(), options.size());
+            }
 
             if (options.backgroundImage() != null) {
                 graphics.setRenderingHint(
@@ -98,10 +103,15 @@ public class PngQrRenderer {
         return image;
     }
 
-    /** The card, its border and its text; the shapes come from {@link Frame}, as in the SVG. */
-    private static void drawFrame(Graphics2D graphics, Frame frame) {
-        graphics.setColor(frame.background());
-        graphics.fillRect(0, 0, frame.width(), frame.height());
+    /**
+     * The card, its border and its text; the shapes come from {@link Frame}, as in the SVG. A
+     * transparent background leaves the card and bleed unpainted.
+     */
+    private static void drawFrame(Graphics2D graphics, Frame frame, boolean transparent) {
+        if (!transparent) {
+            graphics.setColor(frame.background());
+            graphics.fillRect(0, 0, frame.width(), frame.height());
+        }
         if (frame.border() != null) {
             graphics.setColor(frame.borderColor());
             graphics.fill(frame.border());
@@ -242,45 +252,39 @@ public class PngQrRenderer {
     private static void drawEye(Graphics2D graphics, double x, double y, double scale, RenderOptions options) {
         double side = FINDER * scale;
         Paint foreground = finderPaint(options);
-        Color background = options.background();
         switch (options.finderShape()) {
             case SQUARE -> {
                 graphics.setPaint(foreground);
                 graphics.fill(new Rectangle2D.Double(x, y, side, side));
-                graphics.setColor(background);
-                graphics.fill(new Rectangle2D.Double(x + scale, y + scale, side - 2 * scale, side - 2 * scale));
+                fillGap(graphics, new Rectangle2D.Double(x + scale, y + scale, side - 2 * scale, side - 2 * scale), options);
                 graphics.setPaint(foreground);
                 graphics.fill(new Rectangle2D.Double(x + 2 * scale, y + 2 * scale, 3 * scale, 3 * scale));
             }
             case ROUNDED -> {
                 graphics.setPaint(foreground);
                 graphics.fill(rounded(x, y, side, 2.4 * scale));
-                graphics.setColor(background);
-                graphics.fill(rounded(x + scale, y + scale, side - 2 * scale, 1.6 * scale));
+                fillGap(graphics, rounded(x + scale, y + scale, side - 2 * scale, 1.6 * scale), options);
                 graphics.setPaint(foreground);
                 graphics.fill(rounded(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale));
             }
             case CIRCLE -> {
                 graphics.setPaint(foreground);
                 graphics.fill(new Ellipse2D.Double(x, y, side, side));
-                graphics.setColor(background);
-                graphics.fill(new Ellipse2D.Double(x + scale, y + scale, side - 2 * scale, side - 2 * scale));
+                fillGap(graphics, new Ellipse2D.Double(x + scale, y + scale, side - 2 * scale, side - 2 * scale), options);
                 graphics.setPaint(foreground);
                 graphics.fill(new Ellipse2D.Double(x + 2 * scale, y + 2 * scale, 3 * scale, 3 * scale));
             }
             case LEAF -> {
                 graphics.setPaint(foreground);
                 graphics.fill(leaf(x, y, side, 2.4 * scale));
-                graphics.setColor(background);
-                graphics.fill(leaf(x + scale, y + scale, side - 2 * scale, 1.6 * scale));
+                fillGap(graphics, leaf(x + scale, y + scale, side - 2 * scale, 1.6 * scale), options);
                 graphics.setPaint(foreground);
                 graphics.fill(leaf(x + 2 * scale, y + 2 * scale, 3 * scale, 0.9 * scale));
             }
             case DIAMOND -> {
                 graphics.setPaint(foreground);
                 graphics.fill(diamond(x, y, side, 0));
-                graphics.setColor(background);
-                graphics.fill(diamond(x, y, side, scale));
+                fillGap(graphics, diamond(x, y, side, scale), options);
                 graphics.setPaint(foreground);
                 graphics.fill(diamond(x, y, side, 2 * scale));
             }
@@ -292,7 +296,8 @@ public class PngQrRenderer {
      * The standard square eye with the artwork filling its two dark regions.
      *
      * <p>The outer square and the centre are filled with the artwork, then the one-module gap is
-     * painted back in the background colour. The ring and centre are always present, so the
+     * painted back in the background colour, or cleared when the background is transparent. The
+     * ring and centre are always present, so the
      * 1:1:3:1:1 structure survives whatever the image contains. The artwork was already flattened
      * over {@code finderColor}, so transparent pixels are that colour.
      */
@@ -313,10 +318,25 @@ public class PngQrRenderer {
 
         drawArtwork(graphics, artwork.image(), outer, x, y, side);
 
-        graphics.setColor(options.background());
-        graphics.fill(gap);
+        fillGap(graphics, gap, options);
 
         drawArtwork(graphics, artwork.image(), centre, x, y, side);
+    }
+
+    /**
+     * Fills an eye's one-module gap: in the background colour, or, with a transparent background,
+     * by clearing what the outer shape put there so the gap shows whatever the code sits on.
+     */
+    private static void fillGap(Graphics2D graphics, Shape gap, RenderOptions options) {
+        if (options.transparentBackground()) {
+            Composite previous = graphics.getComposite();
+            graphics.setComposite(AlphaComposite.Clear);
+            graphics.fill(gap);
+            graphics.setComposite(previous);
+        } else {
+            graphics.setColor(options.background());
+            graphics.fill(gap);
+        }
     }
 
     /** Draws the artwork into the finder footprint, clipped to one of its dark regions. */

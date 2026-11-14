@@ -15,6 +15,7 @@ export const DEFAULT_STYLE: Readonly<QrStyle> = Object.freeze({
   finderArtwork: null,
   logo: null,
   frame: null,
+  transparentBackground: false,
 })
 
 /** A fresh, mutable copy of the default style. */

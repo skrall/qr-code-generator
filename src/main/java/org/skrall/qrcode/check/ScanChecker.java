@@ -60,7 +60,7 @@ public class ScanChecker {
         double modulePixels = (double) options.size() / (modules + options.margin() * 2);
         boolean inverted = inverted(options);
 
-        BufferedImage flat = flatten(rendered);
+        BufferedImage flat = flatten(rendered, options.background());
         boolean quick = decodes(flat, data, false, inverted);
         boolean hard = quick || decodes(flat, data, true, inverted);
 
@@ -162,6 +162,13 @@ public class ScanChecker {
                     + "recovered.");
         }
 
+        // Not a cause, so it does not stand in for one above: it says what the verdict assumes.
+        if (options.transparentBackground()) {
+            hints.add("The background is transparent, so this check reads the code on "
+                    + RenderOptions.hex(options.background()) + ", the background colour. Place it on a"
+                    + " plain surface close to that colour, with the quiet zone clear of other artwork.");
+        }
+
         return hints;
     }
 
@@ -239,13 +246,19 @@ public class ScanChecker {
         }
     }
 
-    /** Draws the image over white, so transparent pixels read as paper rather than black. */
-    private static BufferedImage flatten(BufferedImage image) {
+    /**
+     * Draws the image over the background colour, so transparent pixels read as the surface the
+     * code is designed to sit on rather than as black.
+     *
+     * <p>Only a transparent background leaves such pixels, and its {@code background} is that
+     * surface: a light-on-dark design is judged on the dark it was made for, not on white.
+     */
+    private static BufferedImage flatten(BufferedImage image, Color background) {
         BufferedImage flat =
                 new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
         Graphics2D graphics = flat.createGraphics();
         try {
-            graphics.setColor(Color.WHITE);
+            graphics.setColor(background);
             graphics.fillRect(0, 0, flat.getWidth(), flat.getHeight());
             graphics.drawImage(image, 0, 0, null);
         } finally {
