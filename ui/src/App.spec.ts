@@ -2,6 +2,8 @@ import { afterEach, describe, expect, test, vi } from 'vitest'
 import { createApp, nextTick, type App as VueApp } from 'vue'
 import type { ShortLink } from './api/client'
 import QrApp from './App.vue'
+import { measure } from './qr/capacity'
+import { defaultStyle } from './qr/style'
 import { encodeShare } from './share'
 
 let app: VueApp | null = null
@@ -123,6 +125,12 @@ describe('App with a short link', () => {
     // The check follows the render and reports on the same payload.
     expect(host.querySelector('.scan-status')?.textContent).toContain('May not scan on every phone')
     expect(host.querySelector('.scan-hints')?.textContent).toContain('Widen the margin.')
+    // The size readout measures the draft in the browser, without waiting for the render.
+    const draftSize = measure('https://example.com/page', defaultStyle().errorCorrection)
+    expect(host.querySelector('.payload-size-headline')?.textContent).toBe(
+      `Version ${draftSize.version} · ${draftSize.modules} × ${draftSize.modules} modules`,
+    )
+    expect(host.querySelector('.payload-size-detail')?.textContent).toContain('destination draft')
     expect(button(host, 'Download PNG').disabled).toBe(true)
     expect(button(host, 'Download SVG').disabled).toBe(true)
     expect(button(host, 'Download PDF').disabled).toBe(true)
@@ -136,6 +144,11 @@ describe('App with a short link', () => {
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toContain('/api/links')
     expect(lastRendered(fetchMock)).toBe(stored.shortUrl)
     expect(host.querySelector('.notice')).toBeNull()
+    const sized = measure(stored.shortUrl, defaultStyle().errorCorrection)
+    expect(host.querySelector('.payload-size-headline')?.textContent).toBe(
+      `Version ${sized.version} · ${sized.modules} × ${sized.modules} modules`,
+    )
+    expect(host.querySelector('.payload-size-detail')?.textContent).not.toContain('draft')
     expect(button(host, 'Download PNG').disabled).toBe(false)
     expect(button(host, 'Download SVG').disabled).toBe(false)
     expect(button(host, 'Download PDF').disabled).toBe(false)

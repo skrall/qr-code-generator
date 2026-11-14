@@ -157,6 +157,27 @@ in the EPC guidelines, since a banking app rejects a code that is off by one lin
 also recommend error correction level M for these codes.
 
 
+## Payload size
+
+The readout under the content form (`PayloadSize.vue`) is computed in the browser on every
+keystroke by `ui/src/qr/capacity.ts`, a port of the path ZXing 3.5's `Encoder.encode` takes with
+the server's hints. ZXing picks one mode for the whole payload (numeric, alphanumeric, else byte,
+never mixed segments). Because `CHARACTER_SET=UTF-8` is passed, a byte-mode payload starts with an
+ECI segment naming UTF-8 (12 bits), so byte payloads hold one byte less than the standard's tables
+say: 2,952 at 40-L, not 2,953. The count is UTF-8 bytes as Java counts them, where a lone
+surrogate becomes a 1-byte `?`. The version search mirrors `recommendVersion`: a provisional
+version from version 1's count width, then the final one with that version's width, and
+`terminateBits`' final check.
+
+`CapacityParityTest` keeps the port honest. It encodes literals (URLs, digits, alphanumerics,
+accents, CJK, emoji, lone surrogates, vCard, WiFi) and, for one unit per mode and UTF-8 width, the
+longest run that still fits versions 1, 2, 5, 9, 10, 26, 27, 39 and 40 at each level plus one more,
+found by searching ZXing itself. It records ZXing's version for every level (null when too long)
+and ZXing's data codeword table in `ui/src/qr/capacity.fixture.json`, and fails when the committed
+file differs from what it generates. `capacity.spec.ts` replays the file through the TypeScript
+module. A second test checks the service itself encodes at the recorded versions, so the test's
+hints cannot drift from `QrCodeService`'s.
+
 ## Undo and share links
 
 **History.** `ui/src/history.ts` keeps up to 100 snapshots of the editor: the content tab, every

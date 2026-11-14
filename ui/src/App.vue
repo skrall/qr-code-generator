@@ -16,6 +16,7 @@ import LinksView from './components/LinksView.vue'
 import DesignsPanel from './components/DesignsPanel.vue'
 import FramePanel from './components/FramePanel.vue'
 import LogoPanel from './components/LogoPanel.vue'
+import PayloadSize from './components/PayloadSize.vue'
 import QrPreview from './components/QrPreview.vue'
 import ScanStatus from './components/ScanStatus.vue'
 import ShareLink from './components/ShareLink.vue'
@@ -319,6 +320,11 @@ onUnmounted(() => {
             @draft="linkDraft"
           />
           <ContentForm v-else :type="activeType" :model="model" />
+          <PayloadSize
+            :payload="canRender ? payload : ''"
+            :level="style.errorCorrection"
+            :draft="isDraft"
+          />
         </div>
 
         <div class="card">
