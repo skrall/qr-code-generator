@@ -6,12 +6,16 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Creates short links and resolves them for the redirect endpoint.
@@ -28,17 +32,24 @@ public class ShortLinkService {
 
     private static final Pattern SCHEME = Pattern.compile("^([A-Za-z][A-Za-z0-9+.-]*):");
 
+    private static final Logger log = LoggerFactory.getLogger(ShortLinkService.class);
+
     private final ShortLinkRepository repository;
     private final LinkCodeGenerator codeGenerator;
     private final LinkProperties properties;
     private final GoneProperties goneProperties;
+    private final ScanService scans;
+    private final TransactionTemplate transactions;
 
     public ShortLinkService(ShortLinkRepository repository, LinkCodeGenerator codeGenerator,
-            LinkProperties properties, GoneProperties goneProperties) {
+            LinkProperties properties, GoneProperties goneProperties, ScanService scans,
+            PlatformTransactionManager transactionManager) {
         this.repository = repository;
         this.codeGenerator = codeGenerator;
         this.properties = properties;
         this.goneProperties = goneProperties;
+        this.scans = scans;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     @Transactional
@@ -113,28 +124,62 @@ public class ShortLinkService {
         return found;
     }
 
+    /** {@link #resolve(String, ScanSource)} for a request that says nothing about itself. */
+    public Resolution resolve(String code) {
+        return resolve(code, ScanSource.UNKNOWN);
+    }
+
     /**
-     * Looks a code up for the redirect endpoint, counting the hit when the link is usable.
+     * Looks a code up for the redirect endpoint, counting the hit and recording the scan when the
+     * link is usable.
      *
      * <p>Deleted and expired links are still found so the caller can tell {@code 410} from
      * {@code 404}. A gone link resolves to a fallback or a message (see {@link #gone}), never to
-     * its old destination. A gone scan is not counted as a hit.
+     * its old destination. A gone scan is neither counted as a hit nor recorded, even when it is
+     * sent on to a fallback.
+     *
+     * <p>A bot (a crawler or a chat app's link preview) is redirected like anyone else and its
+     * scan is recorded with the bot flag, but it does not move the hit count or the last hit, so
+     * those keep meaning "people who opened the link".
+     *
+     * <p>The scan is written in its own transaction after the hit count has committed, and a
+     * failure there is logged and swallowed: analytics must never cost a scanner the redirect.
+     * Writing it inside the same transaction would let a failed insert roll the hit count back
+     * and fail the request at commit. Doing it asynchronously would save one indexed insert of
+     * latency at the price of an executor and scans lost on shutdown.
      */
-    @Transactional
-    public Resolution resolve(String code) {
+    public Resolution resolve(String code, ScanSource source) {
+        Instant now = Instant.now();
+        Lookup lookup = transactions.execute(status -> lookup(code, source, now));
+
+        if (lookup.resolution().status() == Status.FOUND) {
+            try {
+                scans.record(lookup.linkId(), source, now);
+            } catch (RuntimeException e) {
+                log.warn("Could not record a scan of link {}; the redirect is unaffected", code, e);
+            }
+        }
+        return lookup.resolution();
+    }
+
+    private Lookup lookup(String code, ScanSource source, Instant now) {
         Optional<ShortLink> found = repository.findByCode(code);
         if (found.isEmpty()) {
-            return new Resolution(Status.NOT_FOUND, null);
+            return new Lookup(new Resolution(Status.NOT_FOUND, null), null);
         }
 
         ShortLink link = found.get();
-        Instant now = Instant.now();
         if (link.isDeleted() || link.isExpired(now)) {
-            return gone(link);
+            return new Lookup(gone(link), link.getId());
         }
 
-        link.recordHit(now);
-        return new Resolution(Status.FOUND, link.getTargetUrl());
+        if (!source.bot()) {
+            link.recordHit(now);
+        }
+        return new Lookup(new Resolution(Status.FOUND, link.getTargetUrl()), link.getId());
+    }
+
+    private record Lookup(Resolution resolution, Long linkId) {
     }
 
     /**

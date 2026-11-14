@@ -53,6 +53,16 @@ class BasicSecurityTest {
     }
 
     @Test
+    void scanStatisticsNeedASignIn() throws Exception {
+        ShortLink link = links.create("https://example.com/stats", null);
+
+        mockMvc.perform(get("/api/links/{code}/stats", link.getCode()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/links/{code}/stats", link.getCode()).with(httpBasic("operator", PASSWORD)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void theUiAndRenderingNeedASignIn() throws Exception {
         mockMvc.perform(get("/")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/login")).andExpect(status().isUnauthorized());
@@ -135,6 +145,9 @@ class BasicSecurityTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/links").with(httpBasic("reader", PASSWORD)))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/links/{code}/stats", link.getCode()).with(httpBasic("reader", PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(link.getCode()));
 
         mockMvc.perform(post("/api/links").with(httpBasic("reader", PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON).content(LINK))

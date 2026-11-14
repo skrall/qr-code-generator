@@ -159,6 +159,23 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   hash, which is computed, so no manual update is needed; adding a script or image means
   widening the CSP on purpose. `goneUrl` goes through the same `validUrl` as the destination.
 
+## Scan analytics
+
+- Never store an IP address, a full `User-Agent` or a full referrer URL. A scan keeps only the
+  device class and bot flag derived in `ScanSource`, and the referrer's host. Adding a field means
+  saying in `docs/api.md` what is stored.
+- Recording a scan must never break or slow the redirect: it runs after the hit-count transaction
+  commits, in its own, and `ShortLinkService.resolve` catches and logs any failure. Don't move it
+  into the hit-count transaction, where a failed insert would roll the count back and fail the
+  request at commit. Only `FOUND` resolutions record a scan.
+- Bots are recorded but do not move `hit_count` or `last_hit_at`; those mean people.
+- Group by the stored `scanned_on` UTC date, never by a database date function: H2 and PostgreSQL
+  differ, and the tests only run on H2. Check stats changes against a real PostgreSQL too.
+- Hibernate builds `DailyScanCount` and `ScanCount` from JPQL constructor expressions; a new
+  projection needs the same hint in `ApiModelRuntimeHints`.
+- `@Scheduled` methods are called on the proxy, but their calls to sibling methods are not: give
+  the scheduled method its own `@Transactional`; the cleanup threw "No active transaction" without it.
+
 ## Batch
 
 - Everything that can reject a batch as a whole (CSV, limits, design lookup, style) happens in

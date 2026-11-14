@@ -287,6 +287,59 @@ class LinkControllerTest {
                 .andExpect(status().isCreated());
     }
 
+    @Test
+    void reportsScanStatisticsForALink() throws Exception {
+        String code = create("https://example.com/stats");
+        mockMvc.perform(get("/r/{code}", code).header("User-Agent",
+                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) "
+                        + "Chrome/131.0.6778.81 Mobile Safari/537.36"))
+                .andExpect(status().isFound());
+        mockMvc.perform(get("/r/{code}", code).header("User-Agent", "Twitterbot/1.0"))
+                .andExpect(status().isFound());
+
+        mockMvc.perform(get("/api/links/{code}/stats", code).param("days", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.deleted").value(false))
+                .andExpect(jsonPath("$.days").value(7))
+                .andExpect(jsonPath("$.timeZone").value("UTC"))
+                .andExpect(jsonPath("$.allTime").value(1))
+                .andExpect(jsonPath("$.scans").value(1))
+                .andExpect(jsonPath("$.bots").value(1))
+                .andExpect(jsonPath("$.daily.length()").value(7))
+                .andExpect(jsonPath("$.daily[6].scans").value(1))
+                .andExpect(jsonPath("$.daily[6].bots").value(1))
+                .andExpect(jsonPath("$.devices[0].device").value("ANDROID"))
+                .andExpect(jsonPath("$.devices[0].scans").value(1))
+                .andExpect(jsonPath("$.referrers[0].host").doesNotExist())
+                .andExpect(jsonPath("$.referrers[0].scans").value(1));
+    }
+
+    @Test
+    void statsDefaultToThirtyDaysAndRejectAnOutOfRangePeriod() throws Exception {
+        String code = create("https://example.com/period");
+
+        mockMvc.perform(get("/api/links/{code}/stats", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.daily.length()").value(30));
+        mockMvc.perform(get("/api/links/{code}/stats", code).param("days", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("days")));
+        mockMvc.perform(get("/api/links/{code}/stats", code).param("days", "366"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void statsOfAnUnknownCodeAre404AndOfADeletedLinkStillReadable() throws Exception {
+        mockMvc.perform(get("/api/links/{code}/stats", "nosuchcode")).andExpect(status().isNotFound());
+
+        String code = create("https://example.com/deleted");
+        mockMvc.perform(delete("/api/links/{code}", code)).andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/links/{code}/stats", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted").value(true));
+    }
+
     private String create(String url) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/links")
                         .contentType(MediaType.APPLICATION_JSON)

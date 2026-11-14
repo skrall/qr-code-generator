@@ -1068,6 +1068,148 @@ input[type='color'] {
   overflow-wrap: anywhere;
 }
 
+/* Scan statistics dialog -------------------------------------------------- */
+
+.stats-dialog {
+  width: min(680px, 100%);
+}
+
+.stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-target {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.stats-periods {
+  align-self: flex-start;
+}
+
+.stats-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.stats-total {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.stats-number {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-chart {
+  margin: 0;
+}
+
+.stats-chart svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.stats-bar-people {
+  fill: var(--accent);
+}
+
+.stats-bar-bots {
+  fill: var(--border-strong);
+}
+
+.stats-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.stats-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stats-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 6px;
+  border-radius: 2px;
+}
+
+.stats-swatch-people {
+  background: var(--accent);
+}
+
+.stats-swatch-bots {
+  background: var(--border-strong);
+}
+
+.stats-table-toggle summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.stats-table {
+  min-width: 0;
+}
+
+.stats-table th[scope="row"] {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.stats-breakdowns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stats-breakdowns h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.stats-meter-cell {
+  width: 40%;
+}
+
+.stats-meter {
+  display: block;
+  height: 6px;
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .stats-totals,
+  .stats-breakdowns {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Responsive -------------------------------------------------------------- */
 
 @media (max-width: 1180px) {

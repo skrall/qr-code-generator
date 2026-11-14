@@ -1,6 +1,8 @@
 package org.skrall.qrcode.nativeimage;
 
 import org.skrall.qrcode.design.DesignListing;
+import org.skrall.qrcode.link.DailyScanCount;
+import org.skrall.qrcode.link.ScanCount;
 import org.skrall.qrcode.model.ScanTrial;
 import org.skrall.qrcode.web.ValidationProblemDetailAdvice;
 import org.springframework.aot.hint.MemberCategory;
@@ -16,7 +18,8 @@ import org.springframework.aot.hint.RuntimeHintsRegistrar;
  * scan check's response.
  *
  * <p>{@code DesignListing} is built by Hibernate from a JPQL constructor expression, which finds
- * the record's constructor reflectively.
+ * the record's constructor reflectively. So are {@code DailyScanCount} and {@code ScanCount}, the
+ * rows of the scan statistics queries.
  */
 public class ApiModelRuntimeHints implements RuntimeHintsRegistrar {
 
@@ -26,5 +29,7 @@ public class ApiModelRuntimeHints implements RuntimeHintsRegistrar {
                 MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.INVOKE_DECLARED_CONSTRUCTORS);
         hints.reflection().registerType(ScanTrial[].class);
         hints.reflection().registerType(DesignListing.class, MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS);
+        hints.reflection().registerType(DailyScanCount.class, MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS);
+        hints.reflection().registerType(ScanCount.class, MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS);
     }
 }

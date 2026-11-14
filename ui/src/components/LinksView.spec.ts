@@ -227,6 +227,45 @@ describe('LinksView', () => {
     const labels = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim())
     expect(labels).not.toContain('Edit')
     expect(labels).not.toContain('Delete')
+    expect(labels).toContain('Stats')
+  })
+
+  test('opens a link’s statistics and closes them again', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(page([link()])))
+      .mockResolvedValueOnce(
+        response({
+          code: 'abc123XYZ',
+          deleted: false,
+          days: 30,
+          from: '2026-02-09',
+          to: '2026-03-10',
+          timeZone: 'UTC',
+          retentionDays: 365,
+          allTime: 0,
+          scans: 0,
+          bots: 0,
+          daily: [],
+          devices: [],
+          referrers: [],
+        }),
+      )
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount(false)
+    await flush()
+
+    const stats = button(container, 'Stats')
+    expect(stats.getAttribute('aria-label')).toBe('Stats for abc123XYZ')
+    stats.click()
+    await flush()
+
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/links/abc123XYZ/stats?days=30')
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Scan statistics')
+
+    button(container, 'Close').click()
+    await nextTick()
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 
   test('pages through a longer list', async () => {

@@ -110,6 +110,32 @@ export interface LinkPage {
   size: number
 }
 
+export type DeviceClass = 'IOS' | 'ANDROID' | 'WINDOWS' | 'MACOS' | 'LINUX' | 'OTHER'
+
+/** A link's scans over the last `days` UTC days, today included. */
+export interface LinkStats {
+  code: string
+  deleted: boolean
+  days: number
+  /** First and last day of the period, `YYYY-MM-DD` in UTC. */
+  from: string
+  to: string
+  timeZone: string
+  /** How long scans are kept; 0 for forever. */
+  retentionDays: number
+  /** The link's hit count: people since it was created. */
+  allTime: number
+  /** People in the period. */
+  scans: number
+  /** Crawlers, link previews and scripts in the period. */
+  bots: number
+  /** One entry per day of the period, oldest first. */
+  daily: { date: string; scans: number; bots: number }[]
+  devices: { device: DeviceClass; scans: number }[]
+  /** Top referrer hosts; a null host counts scans without a referrer. */
+  referrers: { host: string | null; scans: number }[]
+}
+
 export interface LinkInput {
   url: string
   /** ISO timestamp, or null for a link that never expires. */
@@ -314,6 +340,21 @@ export async function listLinks(
     throw new Error(await problemDetail(response))
   }
   return (await response.json()) as LinkPage
+}
+
+/** Scan statistics for one link over the last `days` UTC days. */
+export async function getLinkStats(
+  code: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<LinkStats> {
+  const response = await send(`/api/links/${encodeURIComponent(code)}/stats?days=${days}`, {
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as LinkStats
 }
 
 /** Soft deletes a link: its code then answers 410 Gone instead of 404. */
