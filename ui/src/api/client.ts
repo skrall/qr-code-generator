@@ -8,7 +8,7 @@
 export type ErrorCorrection = 'LOW' | 'MEDIUM' | 'QUARTILE' | 'HIGH'
 export type ModuleShape = 'SQUARE' | 'ROUNDED' | 'DOTS' | 'STAR' | 'LIQUID'
 export type FinderShape = 'SQUARE' | 'ROUNDED' | 'CIRCLE' | 'LEAF' | 'DIAMOND' | 'CUSTOM'
-export type QrFormat = 'png' | 'svg'
+export type QrFormat = 'png' | 'svg' | 'pdf'
 export type GradientType = 'LINEAR' | 'RADIAL'
 
 /**
@@ -207,12 +207,20 @@ function requestBody(request: RenderRequest): string {
   return JSON.stringify({ data: request.data, style: apiStyle(request.style) })
 }
 
+/**
+ * Renders the code in a format.
+ *
+ * @param dpi the print resolution: it sizes a PDF's page and is recorded in a PNG. Omitted, the
+ *            server sizes a PDF at 300 DPI and records nothing in a PNG.
+ */
 export async function renderQrCode(
   request: RenderRequest,
   format: QrFormat,
   signal?: AbortSignal,
+  dpi?: number,
 ): Promise<Blob> {
-  const response = await send(`/api/qr-codes?format=${format}`, {
+  const query = dpi === undefined ? `format=${format}` : `format=${format}&dpi=${dpi}`
+  const response = await send(`/api/qr-codes?${query}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: requestBody(request),

@@ -37,20 +37,30 @@ public class QrCodeController {
 
     @PostMapping
     @Operation(summary = "Render a QR code", description = """
-            Encodes the supplied payload and returns it as a PNG or SVG image. The payload is
-            whatever the caller composed: a URL, a vCard, a WiFi string and so on. The style is
-            optional and every absent field falls back to a plain black-on-white code.
+            Encodes the supplied payload and returns it as a PNG, an SVG or a one-page vector PDF.
+            The payload is whatever the caller composed: a URL, a vCard, a WiFi string and so on.
+            The style is optional and every absent field falls back to a plain black-on-white
+            code. `dpi` is the print resolution: it sizes the PDF's page (300 when absent) and is
+            recorded in the PNG; an SVG ignores it.
             """)
     @ApiResponse(responseCode = "200", description = "The rendered image",
-            content = @Content(mediaType = "image/png"))
-    @ApiResponse(responseCode = "400", description = "The payload or style was rejected",
+            content = {
+                @Content(mediaType = "image/png"),
+                @Content(mediaType = "image/svg+xml"),
+                @Content(mediaType = "application/pdf")
+            })
+    @ApiResponse(responseCode = "400", description = "The payload, the style or the dpi was rejected",
             content = @Content(mediaType = "application/problem+json"))
     public ResponseEntity<byte[]> render(
             @Valid @RequestBody QrCodeRequest request,
-            @Parameter(description = "The image format", example = "png")
-            @RequestParam(defaultValue = "png") QrFormat format) {
+            @Parameter(description = "The output format: png, svg or pdf", example = "png")
+            @RequestParam(defaultValue = "png") QrFormat format,
+            @Parameter(description = "Print resolution, 72 to 1200 pixels per inch. Sizes a PDF's"
+                    + " page (default 300) and is written into a PNG's pHYs chunk (none when"
+                    + " absent); ignored for SVG.", example = "300")
+            @RequestParam(required = false) Integer dpi) {
 
-        byte[] image = service.render(request, format);
+        byte[] image = service.render(request, format, dpi);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(format.mediaType()))
                 .header(HttpHeaders.CONTENT_DISPOSITION,

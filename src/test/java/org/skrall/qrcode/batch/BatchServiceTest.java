@@ -30,6 +30,7 @@ import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.QrGradient;
 import org.skrall.qrcode.model.GradientType;
 import org.skrall.qrcode.model.QrStyle;
+import org.skrall.qrcode.render.PdfQrRenderer;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.SvgQrRenderer;
 import org.skrall.qrcode.security.Caller;
@@ -42,7 +43,7 @@ class BatchServiceTest {
 
     /** No design is resolved here; the controller tests cover that path. */
     private final BatchService service = new BatchService(
-            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker()), null, validator());
+            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new PdfQrRenderer(), new ScanChecker()), null, validator());
 
     @AfterAll
     static void close() {

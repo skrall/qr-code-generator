@@ -23,8 +23,49 @@ curl -X POST 'http://localhost:8080/api/qr-codes?format=png' \
   }' --output qr.png
 ```
 
-`format` is `png` (the default) or `svg`, in either case. The response is the image with
-`Content-Type: image/png` or `image/svg+xml`.
+`format` is `png` (the default), `svg` or `pdf`, in any case. The response is the image with
+`Content-Type: image/png`, `image/svg+xml` or `application/pdf`.
+
+`dpi` is the print resolution, 72 to 1200 pixels per inch; anything else is a 400. It is a query
+parameter like `format` rather than a style field, because it describes the output, not the
+design: the same saved design prints at any resolution, and the pixels never change.
+
+| Format | Without `dpi`                         | With `dpi`                                         |
+| ------ | ------------------------------------- | -------------------------------------------------- |
+| `png`  | no resolution recorded                | a `pHYs` chunk, so print and layout software sizes it |
+| `pdf`  | the page is sized at 300 DPI          | the page is sized at `dpi`                         |
+| `svg`  | ignored                               | ignored                                            |
+
+So `size` 600 at 300 DPI is 2 inches (50.8 mm) square. A frame makes the image, and the page,
+larger than `size`.
+
+## PDF
+
+```bash
+curl -X POST 'http://localhost:8080/api/qr-codes?format=pdf&dpi=300' \
+  --user operator:change-me-on-deploy \
+  -H 'Content-Type: application/json' \
+  -d '{"data": "https://example.com", "style": {"size": 600}}' --output qr.pdf
+```
+
+A one-page vector PDF with the same geometry as the PNG and the SVG: modules, eyes, gradients
+(as shading patterns), the frame's card, border and text are paths. Frame text is filled as glyph
+outlines, so no font is embedded; the document's title and subject carry the title and caption.
+A logo, finder artwork and background image are embedded as images at their own resolution,
+with a soft mask where they have transparency. A transparent background is left unpainted, eye
+gaps included, so the page shows whatever it is placed on.
+
+Page boxes, in points (1/72 inch):
+
+- **No bleed**: the MediaBox and TrimBox are the image, and there are no crop marks.
+- **A frame with `bleedPercent`**: the BleedBox is the whole image, the TrimBox is the image less
+  the bleed on every side, and the MediaBox adds a 27 pt slug around the bleed for crop marks.
+  Each corner has two 0.25 pt marks on the trim lines, extended outwards, starting 3 pt outside
+  the bleed and 18 pt long, so no mark reaches into the bleed or the trimmed page. They are in the
+  registration colour (`/Separation /All`), which prints on every plate.
+
+For a 50 mm trimmed code with 3 mm bleed, set `bleedPercent` 6 and choose `size` and `dpi` so the
+code is 50 mm, for example `size` 591 at 300 DPI.
 
 ## Style
 
@@ -51,7 +92,8 @@ black-on-white code.
 
 Set `transparentBackground` to `true` to paint only the code: the quiet zone, the light modules and
 the gap inside each corner pattern are left transparent, so the code can be placed on existing
-artwork. A PNG has alpha 0 there; an SVG has no background rect and masks the corner gaps out.
+artwork. A PNG has alpha 0 there; an SVG has no background rect and masks the corner gaps out; a PDF
+never paints there and fills each eye as a ring.
 
 ```json
 {
@@ -266,7 +308,7 @@ larger rather than the code smaller.
 | `radiusPercent`      | 0–25, the border's corner radius              | 4                  |
 | `paddingPercent`     | 0–30, between the border and the code         | 6                  |
 | `marginPercent`      | 0–20, between the trim line and the border    | 0                  |
-| `bleedPercent`       | 0–20, card colour beyond the trim line        | 0                  |
+| `bleedPercent`       | 0–20, card colour beyond the trim line; in a PDF, the TrimBox and crop marks | 0 |
 
 Every length is a percentage of the code's side, so a card keeps its proportions at any `size`.
 From the outside in: bleed, margin, border, padding, then the code, following CSS's box model with
@@ -276,8 +318,8 @@ cut does not thin one side of it.
 
 Text wraps to the code's width and is centred on it; a newline starts a new line. It is set in
 Inter (Bold for the title, Regular for the caption), which ships with the application under the
-SIL Open Font License. Both formats draw the same glyph outlines, so the SVG has no `<text>` and
-depends on no installed font. Its `<title>` and `<desc>` carry the text for screen readers.
+SIL Open Font License. All three formats draw the same glyph outlines, so the SVG has no `<text>`,
+the PDF embeds no font, and neither depends on an installed one. Its `<title>` and `<desc>` carry the text for screen readers.
 
 A frame is rejected with a 400 when:
 
@@ -516,7 +558,7 @@ can send the chosen file as it is:
 | Part | Content type | Holds |
 | --- | --- | --- |
 | `csv` | any (`text/csv`) | The CSV, UTF-8, at most 1 MB |
-| `options` | `application/json` | Optional: `{"format", "style"}` or `{"format", "designId"}` |
+| `options` | `application/json` | Optional: `{"format", "dpi", "style"}` or `{"format", "dpi", "designId"}` |
 
 ```bash
 curl -X POST http://localhost:8080/api/qr-codes/batch \
@@ -526,8 +568,10 @@ curl -X POST http://localhost:8080/api/qr-codes/batch \
   --output qr-codes.zip
 ```
 
-- **`format`** is `png` (the default), `svg` or `both`, in any case. `both` writes a PNG and an
-  SVG per row.
+- **`format`** is `png` (the default), `svg`, `pdf` or `both`, in any case. `both` writes a PNG
+  and an SVG per row.
+- **`dpi`** is the print resolution, as the render endpoint's `dpi` parameter: optional, 72 to
+  1200.
 - **`style`** is the same document the render API takes; absent, the code is plain
   black-on-white. **`designId`** takes the style from a saved design instead. A design you
   cannot see answers 404, just as `GET /api/designs/{id}` does; sending both is a 400.

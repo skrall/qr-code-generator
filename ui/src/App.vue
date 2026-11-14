@@ -26,6 +26,7 @@ import { altText, type EmbedSource, linkTarget } from './embed'
 import { findQrType, initialValues, QR_TYPES, type QrTypeId } from './qr/types'
 import { defaultStyle } from './qr/style'
 import { useEditorHistory } from './editorHistory'
+import { bleedPixels } from './print'
 import type { CurrentDesign } from './share'
 
 const view = ref<'generator' | 'links'>('generator')
@@ -204,14 +205,14 @@ watch([payload, style], schedule, { deep: true, immediate: true })
 
 const downloading = ref<QrFormat | null>(null)
 
-async function download(format: QrFormat): Promise<void> {
+async function download(format: QrFormat, dpi?: number): Promise<void> {
   if (!canRender.value || isDraft.value || downloading.value) {
     return
   }
   downloading.value = format
   error.value = ''
   try {
-    const blob = await renderQrCode({ data: payload.value, style }, format)
+    const blob = await renderQrCode({ data: payload.value, style }, format, undefined, dpi)
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
@@ -362,6 +363,7 @@ onUnmounted(() => {
             :draft="isDraft"
             :downloadable="!isDraft"
             :embed="embed"
+            :bleed="style.frame ? bleedPixels(style.size, style.frame.bleedPercent) : 0"
             :placeholder="
               typeId === 'shortlink'
                 ? 'Enter a destination to see a draft, then Create link to encode the short URL.'

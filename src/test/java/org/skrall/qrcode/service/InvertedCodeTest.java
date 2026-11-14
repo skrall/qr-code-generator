@@ -35,6 +35,7 @@ import org.skrall.qrcode.model.QrStyle;
 import org.skrall.qrcode.model.ScanCheckResponse;
 import org.skrall.qrcode.model.ScanTrial;
 import org.skrall.qrcode.model.ScanVerdict;
+import org.skrall.qrcode.render.PdfQrRenderer;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.SvgQrRenderer;
 
@@ -48,7 +49,7 @@ class InvertedCodeTest {
     private static final String DATA = "https://example.com/inverted?campaign=night";
 
     private final QrCodeService service =
-            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker());
+            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new PdfQrRenderer(), new ScanChecker());
 
     @Test
     void aPlainInvertedCodeDecodesAndIsMarginal() throws IOException {

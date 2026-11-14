@@ -27,6 +27,11 @@
             square modules and nothing else.
         -->
         <zxing.version>3.5.4</zxing.version>
+        <!--
+            Tests only: reads back the PDFs this project writes itself (page boxes, resources)
+            and rasterises them to compare with the PNG and to decode with ZXing.
+        -->
+        <pdfbox.version>3.0.8</pdfbox.version>
         <!-- 3.x is the line built against Spring Boot 4; 2.x targets Spring Boot 3. -->
         <springdoc.version>3.2.0</springdoc.version>
         <!--
@@ -127,6 +132,13 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Apache License 2.0. Not shipped: the PDF writer has no dependencies. -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- Spring Boot 4 moved MockMvc test support out of spring-boot-starter-test. -->

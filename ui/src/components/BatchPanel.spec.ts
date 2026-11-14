@@ -129,7 +129,7 @@ describe('BatchPanel', () => {
     await flush()
 
     const file = await chooseFile(container, 'data\nhello\n')
-    button(container, 'Both').click()
+    button(container, 'PNG + SVG').click()
     await nextTick()
     button(container, 'Download ZIP').click()
     await flush()
@@ -147,6 +147,23 @@ describe('BatchPanel', () => {
     expect(createUrl).toHaveBeenCalled()
     expect(click).toHaveBeenCalled()
     expect(container.textContent).toContain('report.csv')
+  })
+
+  test('offers PDF as a batch format', async () => {
+    const fetchMock = stubApi(zip)
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:zip')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const container = mount(reactive(defaultStyle()))
+    await flush()
+
+    await chooseFile(container, 'data\nhello\n')
+    button(container, 'PDF').click()
+    await nextTick()
+    button(container, 'Download ZIP').click()
+    await flush()
+
+    expect((await sentBatch(fetchMock)).options.format).toBe('pdf')
   })
 
   test('sends a saved design by id instead of the style', async () => {

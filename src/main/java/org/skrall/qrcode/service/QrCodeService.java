@@ -11,12 +11,14 @@ import java.util.EnumMap;
 import java.util.Map;
 import org.skrall.qrcode.QrEncodingException;
 import org.skrall.qrcode.check.ScanChecker;
+import org.skrall.qrcode.model.Dpi;
 import org.skrall.qrcode.model.ErrorCorrection;
 import org.skrall.qrcode.model.QrCodeRequest;
 import org.skrall.qrcode.model.QrFormat;
 import org.skrall.qrcode.model.QrStyle;
 import org.skrall.qrcode.model.ScanCheckResponse;
 import org.skrall.qrcode.render.LogoImage;
+import org.skrall.qrcode.render.PdfQrRenderer;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.RenderOptions;
 import org.skrall.qrcode.render.SvgQrRenderer;
@@ -30,20 +32,42 @@ public class QrCodeService {
 
     private final PngQrRenderer pngRenderer;
     private final SvgQrRenderer svgRenderer;
+    private final PdfQrRenderer pdfRenderer;
     private final ScanChecker scanChecker;
 
     public QrCodeService(
-            PngQrRenderer pngRenderer, SvgQrRenderer svgRenderer, ScanChecker scanChecker) {
+            PngQrRenderer pngRenderer,
+            SvgQrRenderer svgRenderer,
+            PdfQrRenderer pdfRenderer,
+            ScanChecker scanChecker) {
         this.pngRenderer = pngRenderer;
         this.svgRenderer = svgRenderer;
+        this.pdfRenderer = pdfRenderer;
         this.scanChecker = scanChecker;
     }
 
     public byte[] render(QrCodeRequest request, QrFormat format) {
+        return render(request, format, null);
+    }
+
+    /**
+     * Renders the code in a format.
+     *
+     * @param dpi the print resolution, or {@code null}: a PDF's page is then sized at
+     *            {@link Dpi#DEFAULT} and a PNG records none. An SVG ignores it.
+     * @throws org.skrall.qrcode.DpiException when {@code dpi} is out of range
+     */
+    public byte[] render(QrCodeRequest request, QrFormat format, Integer dpi) {
+        Dpi.check(dpi);
         Prepared prepared = prepare(request);
+        return render(prepared, format, dpi);
+    }
+
+    private byte[] render(Prepared prepared, QrFormat format, Integer dpi) {
         return switch (format) {
-            case PNG -> pngRenderer.render(prepared.matrix(), prepared.options());
+            case PNG -> pngRenderer.render(prepared.matrix(), prepared.options(), dpi);
             case SVG -> svgRenderer.render(prepared.matrix(), prepared.options());
+            case PDF -> pdfRenderer.render(prepared.matrix(), prepared.options(), Dpi.forPdf(dpi));
         };
     }
 
@@ -94,17 +118,16 @@ public class QrCodeService {
         /**
          * Encodes the payload once and renders it in each format asked for.
          *
+         * @param dpi the print resolution, as {@link QrCodeService#render(QrCodeRequest, QrFormat,
+         *            Integer)} takes it, already checked
          * @throws QrEncodingException when the payload does not fit
          * @throws org.skrall.qrcode.FrameException when a frame leaves too little quiet zone
          */
-        public Map<QrFormat, byte[]> render(String data, Iterable<QrFormat> formats) {
+        public Map<QrFormat, byte[]> render(String data, Iterable<QrFormat> formats, Integer dpi) {
             Prepared prepared = prepare(data, options);
             Map<QrFormat, byte[]> images = new EnumMap<>(QrFormat.class);
             for (QrFormat format : formats) {
-                images.put(format, switch (format) {
-                    case PNG -> pngRenderer.render(prepared.matrix(), prepared.options());
-                    case SVG -> svgRenderer.render(prepared.matrix(), prepared.options());
-                });
+                images.put(format, QrCodeService.this.render(prepared, format, dpi));
             }
             return images;
         }

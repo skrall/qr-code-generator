@@ -61,6 +61,29 @@ class BatchControllerTest {
     }
 
     @Test
+    void rendersPdfsSizedAtTheDpi() throws Exception {
+        MvcResult started = mockMvc.perform(batch("data,filename\nhello,first.pdf\n", """
+                        {"format":"pdf","dpi":150,"style":{"size":300}}"""))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        byte[] body = mockMvc.perform(asyncDispatch(started)).andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        Map<String, byte[]> zip = entries(body);
+        assertThat(zip.keySet()).containsExactly("first.pdf", "report.csv");
+        String pdf = new String(zip.get("first.pdf"), StandardCharsets.ISO_8859_1);
+        assertThat(pdf).startsWith("%PDF-").contains("/MediaBox [0 0 144 144]");
+    }
+
+    @Test
+    void aDpiOutOfRangeIsABadRequest() throws Exception {
+        mockMvc.perform(batch("data\nhello\n", """
+                        {"format":"pdf","dpi":2000}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("dpi must be between 72 and 1200"));
+    }
+
+    @Test
     void theOptionsPartIsOptional() throws Exception {
         MockMultipartHttpServletRequestBuilder request = multipart("/api/qr-codes/batch")
                 .file(csv("data\nhello\n"));
@@ -134,7 +157,7 @@ class BatchControllerTest {
         mockMvc.perform(batch("data\nhello\n", """
                         {"format":"gif"}"""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value("format must be png, svg or both"));
+                .andExpect(jsonPath("$.detail").value("format must be png, svg, pdf or both"));
     }
 
     @Test

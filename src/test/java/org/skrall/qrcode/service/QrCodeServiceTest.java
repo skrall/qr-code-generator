@@ -42,12 +42,13 @@ import org.skrall.qrcode.model.QrFrame;
 import org.skrall.qrcode.model.QrGradient;
 import org.skrall.qrcode.model.QrLogo;
 import org.skrall.qrcode.model.QrStyle;
+import org.skrall.qrcode.render.PdfQrRenderer;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.SvgQrRenderer;
 
 class QrCodeServiceTest {
 
-    private final QrCodeService service = new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker());
+    private final QrCodeService service = new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new PdfQrRenderer(), new ScanChecker());
 
     @Test
     void rendersPngAtTheRequestedSize() throws IOException {
