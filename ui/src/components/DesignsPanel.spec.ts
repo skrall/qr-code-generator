@@ -260,3 +260,32 @@ describe('DesignsPanel', () => {
     )
   })
 })
+
+describe('DesignsPanel reporting the design on screen', () => {
+  test('names the loaded design, and whether the editor still matches it', async () => {
+    const saved = summary({ shared: true })
+    stubApi([saved], { ...saved, style: { moduleShape: 'DOTS' } })
+    const qrStyle = reactive(defaultStyle())
+    const current = vi.fn()
+    host = document.createElement('div')
+    document.body.appendChild(host)
+    app = createApp({ render: () => h(DesignsPanel, { qrStyle, onCurrent: current }) })
+    app.mount(host)
+    await flush()
+    expect(current).toHaveBeenLastCalledWith(null)
+
+    await choose(host, 7)
+    button(host, 'Load').click()
+    await flush()
+    expect(current).toHaveBeenLastCalledWith({ id: 7, name: 'Brand', shared: true, unchanged: true })
+
+    qrStyle.moduleShape = 'SQUARE'
+    await flush()
+    expect(current).toHaveBeenLastCalledWith({
+      id: 7,
+      name: 'Brand',
+      shared: true,
+      unchanged: false,
+    })
+  })
+})

@@ -48,6 +48,11 @@ export interface QrField {
   help?: string
   maxLength?: number
   autocomplete?: string
+  /**
+   * A value that grants access, such as a network password. A share link never carries it, even
+   * when the sharer chooses to include the content.
+   */
+  secret?: boolean
 }
 
 /**
@@ -633,7 +638,7 @@ export const QR_TYPES: readonly QrType[] = [
           { value: 'nopass', label: 'Open network' },
         ],
       },
-      { key: 'password', label: 'Password', kind: 'text', placeholder: 'Network password' },
+      { key: 'password', label: 'Password', kind: 'text', placeholder: 'Network password', secret: true },
       { key: 'hidden', label: 'The network is hidden', kind: 'checkbox' },
     ],
     defaults: { encryption: 'WPA' },

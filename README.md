@@ -29,12 +29,19 @@ by the same process.
   everyone who signs in, and export or import it as a JSON file.
 - **Batch generation** — upload a CSV of payloads, render every row with the current style or a
   saved design, and download the PNGs or SVGs as a ZIP, with a report of any rows skipped.
+- **Undo, redo and share links** — undo any edit to the style or content (Ctrl/Cmd+Z), and copy
+  a link that reopens the design, optionally with its content. The design travels in the link's
+  `#` fragment, never sent to the server; secrets such as a WiFi password are always left out, and
+  a design with images is shared as a link to the saved design instead.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
   expiry, a searchable list and hit counts.
 - **Sign-in** — HTTP Basic by default, or an identity provider (Okta, Entra ID), or a trusted
   reverse proxy, with an operator role for changing short links. The redirects stay public.
 - **PNG and SVG** — PNG for anything that needs a bitmap, SVG for print and for embedding the
   original logo without resampling.
+- **Copy as embed snippet** — copy the code as an HTML `<img>` with a PNG data URL, inline SVG
+  (ids prefixed so several codes can share a page), a bare data URL, or, for a web address, an
+  `<img>` wrapped in a link. Alt text describes the payload without secrets such as a WiFi password.
 - **Scan check** — the preview renders the code again and reads it back, as drawn, shrunk and
   blurred, and says whether phones should read it, with hints when they might not.
 - **Scannable** — the tests decode the rendered output with ZXing, including a rounded code with

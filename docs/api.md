@@ -423,6 +423,12 @@ Any signed-in user may save designs: the operator role governs short links, not 
 also exports a design as a `.qr-design.json` file and imports one back; that happens in the
 browser and needs no endpoint.
 
+The UI's share links need no endpoint either. A style without images travels in the link's
+fragment (`#share=v1.…`), which is never sent to the server. A style with images is shared as
+`#design=<id>`, which the opening browser loads with `GET /api/designs/{id}`, so the visibility
+rules above apply: a private design opens only for its owner. See
+[the architecture notes](architecture.md#undo-and-share-links) for the format.
+
 ## Batch generation
 
 `POST /api/qr-codes/batch` renders every row of a CSV with one style and answers a ZIP. It is

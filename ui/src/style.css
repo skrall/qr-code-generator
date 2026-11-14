@@ -145,6 +145,11 @@ body {
   gap: 10px;
 }
 
+.history-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .view-nav {
   display: inline-flex;
   padding: 3px;
@@ -623,6 +628,59 @@ input[type='color'] {
 
 .preview-actions button {
   flex: 1;
+}
+
+.embed-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.embed-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.embed-controls select {
+  flex: 1;
+  min-width: 0;
+}
+
+.embed-label {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.embed-status {
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.embed-status:empty {
+  display: none;
+}
+
+.embed-warning {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: 12.5px;
+}
+
+.embed-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.embed-fallback textarea {
+  font-family: var(--mono);
+  font-size: 12px;
 }
 
 .payload summary {

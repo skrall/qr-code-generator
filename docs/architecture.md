@@ -20,7 +20,11 @@ src/main/resources/db/migration/
 ui/src/
 ├── qr/types.ts     the payload builders for every supported content type
 ├── api/client.ts   the typed API client and the logo file reader
-├── components/     content form, style panel, logo panel, preview, short links
+├── components/     content form, style panel, logo panel, preview, short links, share link
+├── embed.ts        "Copy as…" snippet builders (alt text, data URLs, inline SVG ids)
+├── history.ts      undo/redo history, snapshots and the keyboard shortcut rules
+├── editorHistory.ts the history wired to the editor's reactive state and the keyboard
+├── share.ts        the share link format: encode, decode and check
 └── App.vue         state, debounced preview and downloads
 ```
 
@@ -66,6 +70,33 @@ unpainted too. `background` still names the surface the code is meant for, so th
 the artwork adjustment and the scan check, which flattens the image over that colour before reading
 it, all work as before.
 
+## Embed snippets
+
+The preview's "Copy as…" menu (`EmbedMenu.vue`, builders in `ui/src/embed.ts`) fetches the image
+with the same render call as a download, so a snippet is byte-for-byte the file a download would
+save, not the preview's object URL. It is disabled whenever the downloads are: while the payload is
+a short link draft, while rendering, and after an error.
+
+- **`<img>`, data URL and linked `<img>`** use the PNG. `width` and `height` come from the PNG's
+  IHDR chunk, since a frame makes the image larger than `size`. The link wrapper is offered only
+  for an http(s) payload, a short link included.
+- **Alt text** names what the code is for and leaves out anything private: a URL is reduced to its
+  host (a query can carry tokens), a WiFi code names the network but never the password, SMS and
+  email bodies, IBANs, amounts and free text are left out.
+- **Inline SVG** drops the XML declaration, puts the alt text in `<title>`, and prefixes every `id`
+  with a random `qrxxxxxx-` along with each `url(#…)` and `href="#…"` that points at one. The
+  renderer's fixed ids (`qr-gradient`, `finder-outer`, `finder-gap-0`…) are right for a file, but
+  inline every id shares the page, so a second code would paint with the first one's gradient or
+  mask. This is done in the browser rather than as a server option: only the pasted copy needs
+  it, the download and the API stay unchanged, and the rewrite covers any id a renderer adds later.
+  Embedded images are `data:` URLs, so the reference rewrite never touches them.
+- **Size.** A snippet over 100 KB, usually from a logo or background image, is still copied, with a
+  note suggesting inline SVG or hosting the file.
+- **Clipboard.** If the Clipboard API is missing (plain HTTP on a LAN) or refuses, the snippet is
+  shown in a read-only, preselected textarea to copy by hand, with the reason in the live region.
+- **No Markdown.** A Markdown image would need a data URL, which GitHub and most sanitizing
+  renderers strip, or a hosted file, which this tool does not provide.
+
 ## Payload types
 
 The server encodes whatever string it is sent; each content type is a builder in
@@ -85,6 +116,46 @@ The SEPA type checks the IBAN's and an RF reference's mod-97 check digits and ev
 in the EPC guidelines, since a banking app rejects a code that is off by one line. The guidelines
 also recommend error correction level M for these codes.
 
+
+## Undo and share links
+
+**History.** `ui/src/history.ts` keeps up to 100 snapshots of the editor: the content tab, every
+tab's values and the style. A change restarts a 450 ms timer and the step is recorded once the
+editor is quiet, so dragging a slider or typing a word is one step; undoing records a pending
+change first. A snapshot copies plain objects and shares strings, so an image held as a data URL
+is never copied: taking and comparing one costs about 10 µs with two 2.7 MB images, against about
+2.6 ms for `JSON.stringify` of the same state. That is cheap enough to compare on every change,
+which is how a restore, echoing back through the deep watcher, is recognised as no edit and
+records nothing. A new edit after an undo discards the undone steps. Applying a share link calls
+`commit` so it is its own step; loading a design, importing a file or inverting colours are
+single changes and become one step through the timer.
+
+Ctrl/Cmd+Z undoes and Ctrl/Cmd+Shift+Z or Ctrl+Y redo, except when focus is in a text input, a
+textarea, a select or an editable element, whose native undo is left alone. Sliders, checkboxes
+and buttons have no native undo, so the shortcut applies there.
+
+**Share links.** The state goes in the URL fragment, which browsers never send, so the server
+and its logs never see it:
+
+```
+#share=v1.z.<base64url(deflate-raw(JSON))>    CompressionStream
+#share=v1.j.<base64url(JSON)>                 browsers without CompressionStream
+#design=<id>                                  a saved design, loaded with GET /api/designs/{id}
+```
+
+The JSON is `{"style": {…}, "content"?: {"type": "wifi", "values": {…}}}`. The style is the API
+style without images; content is only added when "Include content" is ticked, and never holds a
+field marked `secret` in `qr/types.ts` (the WiFi password). Images would make the link megabytes
+long, so a style with any is shared as a `#design=` link to the saved design on screen, which the
+server's visibility rules then govern: someone else's private design answers 404 and the UI says
+it was not found or not shared. Links are capped at 8,000 characters both ways, and a link may
+inflate to at most 64 KB. Decoding checks the version, every field's type and the content's
+type and keys, and ignores images and secrets a crafted link might carry.
+
+On startup, and on a `hashchange`, the fragment is applied, then removed with
+`history.replaceState`. From then on the editor and its undo history hold the state; leaving
+the fragment would make a reload throw later edits away, and would keep content in the address
+bar. A damaged, oversized or newer-version link is reported in the Share card and changes nothing.
 
 ## Notes
 
