@@ -164,6 +164,30 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   a printed code that stops working is not the same as an address that never existed.
 - Editing a link changes its destination and expiry but never its code. The code is what a
   printed QR image carries, so replacing it would defeat the point of editing.
+- A gone link's options decide what a scan of it gets: its `goneUrl` (302, not counted), else its
+  `goneMessage` on the 410 page, else `app.links.gone-url`, else the default 410 page. An unknown
+  code is always the 404 page. Keep 410 for a gone link that has nowhere to send the scan.
+- `goneMessage` is user input rendered into HTML: `RedirectController.page` escapes everything it
+  writes, and the page's CSP allows only its own stylesheet by hash. Changing `STYLE` changes the
+  hash, which is computed, so no manual update is needed; adding a script or image means
+  widening the CSP on purpose. `goneUrl` goes through the same `validUrl` as the destination.
+
+## Scan analytics
+
+- Never store an IP address, a full `User-Agent` or a full referrer URL. A scan keeps only the
+  device class and bot flag derived in `ScanSource`, and the referrer's host. Adding a field means
+  saying in `docs/api.md` what is stored.
+- Recording a scan must never break or slow the redirect: it runs after the hit-count transaction
+  commits, in its own, and `ShortLinkService.resolve` catches and logs any failure. Don't move it
+  into the hit-count transaction, where a failed insert would roll the count back and fail the
+  request at commit. Only `FOUND` resolutions record a scan.
+- Bots are recorded but do not move `hit_count` or `last_hit_at`; those mean people.
+- Group by the stored `scanned_on` UTC date, never by a database date function: H2 and PostgreSQL
+  differ, and the tests only run on H2. Check stats changes against a real PostgreSQL too.
+- Hibernate builds `DailyScanCount` and `ScanCount` from JPQL constructor expressions; a new
+  projection needs the same hint in `ApiModelRuntimeHints`.
+- `@Scheduled` methods are called on the proxy, but their calls to sibling methods are not: give
+  the scheduled method its own `@Transactional`; the cleanup threw "No active transaction" without it.
 
 ## Batch
 

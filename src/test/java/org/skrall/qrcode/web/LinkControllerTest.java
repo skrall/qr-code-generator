@@ -213,6 +213,133 @@ class LinkControllerTest {
                 .andExpect(jsonPath("$.errors[0].field").value("url"));
     }
 
+    @Test
+    void storesAndReturnsTheGoneOptions() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com","goneUrl":" https://example.com/next ",
+                                 "goneMessage":"  This offer has ended.  "}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.goneUrl").value("https://example.com/next"))
+                .andExpect(jsonPath("$.goneMessage").value("This offer has ended."))
+                .andReturn();
+        String code = JsonPath.read(result.getResponse().getContentAsString(), "$.code");
+
+        mockMvc.perform(get("/api/links"))
+                .andExpect(jsonPath("$.items[0].goneUrl").value("https://example.com/next"))
+                .andExpect(jsonPath("$.items[0].goneMessage").value("This offer has ended."));
+
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com","goneMessage":"Moved on."}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.goneUrl").doesNotExist())
+                .andExpect(jsonPath("$.goneMessage").value("Moved on."));
+
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com","goneUrl":"","goneMessage":"  "}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goneUrl").doesNotExist())
+                .andExpect(jsonPath("$.goneMessage").doesNotExist());
+    }
+
+    @Test
+    void rejectsAFallbackThatIsNotHttp() throws Exception {
+        for (String bad : new String[] {"javascript:alert(1)", "data:text/html,hi", "ftp://example.com"}) {
+            mockMvc.perform(post("/api/links")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"url\":\"https://example.com\",\"goneUrl\":\"" + bad + "\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.detail").value("goneUrl must be an absolute http or https URL"));
+        }
+        String code = create("https://example.com/edit");
+        mockMvc.perform(put("/api/links/{code}", code)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"url":"https://example.com","goneUrl":"javascript:alert(1)"}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void rejectsAnOversizedFallbackOrMessage() throws Exception {
+        mockMvc.perform(post("/api/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://example.com\",\"goneUrl\":\"https://example.com/"
+                                + "a".repeat(2100) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("goneUrl"));
+        mockMvc.perform(post("/api/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://example.com\",\"goneMessage\":\""
+                                + "a".repeat(281) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("goneMessage must be at most 280 characters"))
+                .andExpect(jsonPath("$.errors[0].field").value("goneMessage"));
+        mockMvc.perform(post("/api/links")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://example.com\",\"goneMessage\":\""
+                                + "a".repeat(280) + "\"}"))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void reportsScanStatisticsForALink() throws Exception {
+        String code = create("https://example.com/stats");
+        mockMvc.perform(get("/r/{code}", code).header("User-Agent",
+                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) "
+                        + "Chrome/131.0.6778.81 Mobile Safari/537.36"))
+                .andExpect(status().isFound());
+        mockMvc.perform(get("/r/{code}", code).header("User-Agent", "Twitterbot/1.0"))
+                .andExpect(status().isFound());
+
+        mockMvc.perform(get("/api/links/{code}/stats", code).param("days", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(code))
+                .andExpect(jsonPath("$.deleted").value(false))
+                .andExpect(jsonPath("$.days").value(7))
+                .andExpect(jsonPath("$.timeZone").value("UTC"))
+                .andExpect(jsonPath("$.allTime").value(1))
+                .andExpect(jsonPath("$.scans").value(1))
+                .andExpect(jsonPath("$.bots").value(1))
+                .andExpect(jsonPath("$.daily.length()").value(7))
+                .andExpect(jsonPath("$.daily[6].scans").value(1))
+                .andExpect(jsonPath("$.daily[6].bots").value(1))
+                .andExpect(jsonPath("$.devices[0].device").value("ANDROID"))
+                .andExpect(jsonPath("$.devices[0].scans").value(1))
+                .andExpect(jsonPath("$.referrers[0].host").doesNotExist())
+                .andExpect(jsonPath("$.referrers[0].scans").value(1));
+    }
+
+    @Test
+    void statsDefaultToThirtyDaysAndRejectAnOutOfRangePeriod() throws Exception {
+        String code = create("https://example.com/period");
+
+        mockMvc.perform(get("/api/links/{code}/stats", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.daily.length()").value(30));
+        mockMvc.perform(get("/api/links/{code}/stats", code).param("days", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value(containsString("days")));
+        mockMvc.perform(get("/api/links/{code}/stats", code).param("days", "366"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void statsOfAnUnknownCodeAre404AndOfADeletedLinkStillReadable() throws Exception {
+        mockMvc.perform(get("/api/links/{code}/stats", "nosuchcode")).andExpect(status().isNotFound());
+
+        String code = create("https://example.com/deleted");
+        mockMvc.perform(delete("/api/links/{code}", code)).andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/links/{code}/stats", code))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deleted").value(true));
+    }
+
     private String create(String url) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/links")
                         .contentType(MediaType.APPLICATION_JSON)

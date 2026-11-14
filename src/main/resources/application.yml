@@ -76,6 +76,17 @@ app:
   # a code scanned elsewhere has to point at a LAN address or the name behind a reverse proxy.
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
 
+  # Where a scan of an expired or deleted short link goes when the link has neither a fallback
+  # URL nor a message of its own. Blank (the default) shows the "no longer active" page with
+  # 410 Gone instead.
+  links:
+    gone-url: ${APP_LINKS_GONE_URL:}
+
+    # Scan analytics. Each redirect stores its UTC day, a device class, a bot flag and the
+    # referrer's host (never an IP address or a user agent). A daily cleanup deletes scans older
+    # than this many days; 0 keeps them forever. The link's hit count is never pruned.
+    scan-retention-days: ${APP_LINKS_SCAN_RETENTION_DAYS:365}
+
 # Loopback only by default: this is a local tool, and a QR generator on an open port invites
 # strangers to use it as a rendering service. Override SERVER_ADDRESS when it should be
 # reachable from another machine.

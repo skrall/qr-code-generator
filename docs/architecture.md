@@ -6,7 +6,7 @@ src/main/java/org/skrall/qrcode/
 ├── service/        encoding: payload → ZXing BitMatrix
 ├── check/          reads a rendered code back for the scan check
 ├── render/         matrix → PNG (Java2D), PDF or SVG
-├── link/           short link entity, repository and redirect resolution
+├── link/           short links, redirect resolution, and scan recording, stats and retention
 ├── design/         saved designs and who may see and change them
 ├── batch/          CSV reading, ZIP entry names and the streamed batch render
 ├── security/       the four sign-in modes, role mapping and the proxy allowlist
@@ -15,12 +15,14 @@ src/main/java/org/skrall/qrcode/
 
 src/main/resources/db/migration/
 ├── V1__short_link.sql   short links
-└── V2__design.sql       saved designs
+├── V2__design.sql       saved designs
+├── V4__link_gone_options.sql  a link's fallback URL and message once it is gone
+└── V5__link_scan.sql    one row per scan, for the stats
 
 ui/src/
 ├── qr/types.ts     the payload builders for every supported content type
 ├── api/client.ts   the typed API client and the logo file reader
-├── components/     content form, style panel, logo panel, preview, short links, share link
+├── components/     content form, style panel, logo panel, preview, short links and their stats, share link
 ├── embed.ts        "Copy as…" snippet builders (alt text, data URLs, inline SVG ids)
 ├── print.ts        print size: DPI range and the millimetres a download prints at
 ├── history.ts      undo/redo history, snapshots and the keyboard shortcut rules
@@ -195,12 +197,31 @@ On startup, and on a `hashchange`, the fragment is applied, then removed with
 the fragment would make a reload throw later edits away, and would keep content in the address
 bar. A damaged, oversized or newer-version link is reported in the Share card and changes nothing.
 
+## Scan analytics
+
+`RedirectController` reads `User-Agent` and `Referer` into a `ScanSource`: a device class, a bot
+flag and the referrer's host, nothing else. `ShortLinkService.resolve` looks the code up and bumps
+the hit count (people only) in one transaction, then, for a `FOUND` link only, has `ScanService`
+insert a `link_scan` row in a second one. A failure there is logged and swallowed, so analytics
+can never cost a scanner the redirect or roll the hit count back. The insert is synchronous: it is
+one indexed row, and an async queue would lose scans on shutdown for little gain.
+
+Each row stores `scanned_on`, the UTC date of `scanned_at`. The stats queries group on that column
+instead of truncating the timestamp, which H2 and PostgreSQL spell differently, so the JPQL is
+the same on both. The service zero-fills the days in Java. A scheduled job deletes rows older than
+`app.links.scan-retention-days`. The query rows (`DailyScanCount`, `ScanCount`) are JPQL
+constructor expressions, registered for the native image in `ApiModelRuntimeHints`.
+
+The links view's Stats button opens `LinkStatsDialog.vue`: totals, a stacked bar chart of people
+and bots per day drawn as inline SVG (`role="img"` with a text summary, and the same numbers in a
+table), and device and referrer tables.
+
 ## Notes
 
 - The frame's font is Inter, bundled under `src/main/resources/fonts` with its licence.
 - No upload storage: a logo, finder artwork or background image lives only in the request that
-  carries it. Short links are the one thing stored, in the database, because they have to outlive
-  a restart.
+  carries it. Short links, their scans and saved designs are what is stored, in the database,
+  because they have to outlive a restart.
 - The UI keeps each type's values separately, so switching from a vCard to a WiFi code and back
   does not discard what was typed.
 - The preview is debounced and cancels the previous request, so typing does not queue renders.

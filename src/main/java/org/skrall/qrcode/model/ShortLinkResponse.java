@@ -17,7 +17,9 @@ public record ShortLinkResponse(
         Instant createdAt,
         Instant expiresAt,
         long hitCount,
-        Instant lastHitAt) {
+        Instant lastHitAt,
+        String goneUrl,
+        String goneMessage) {
 
     public static ShortLinkResponse from(ShortLink link, LinkProperties properties) {
         return new ShortLinkResponse(
@@ -27,6 +29,8 @@ public record ShortLinkResponse(
                 link.getCreatedAt(),
                 link.getExpiresAt(),
                 link.getHitCount(),
-                link.getLastHitAt());
+                link.getLastHitAt(),
+                link.getGoneUrl(),
+                link.getGoneMessage());
     }
 }

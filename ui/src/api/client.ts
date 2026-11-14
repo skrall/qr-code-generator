@@ -97,6 +97,10 @@ export interface ShortLink {
   expiresAt: string | null
   hitCount: number
   lastHitAt: string | null
+  /** Where a scan goes once the link has expired or been deleted, instead of the 410 page. */
+  goneUrl?: string | null
+  /** Plain text shown on the 410 page instead of the default wording. */
+  goneMessage?: string | null
 }
 
 export interface LinkPage {
@@ -106,10 +110,53 @@ export interface LinkPage {
   size: number
 }
 
+export type DeviceClass = 'IOS' | 'ANDROID' | 'WINDOWS' | 'MACOS' | 'LINUX' | 'OTHER'
+
+/** A link's scans over the last `days` UTC days, today included. */
+export interface LinkStats {
+  code: string
+  deleted: boolean
+  days: number
+  /** First and last day of the period, `YYYY-MM-DD` in UTC. */
+  from: string
+  to: string
+  timeZone: string
+  /** How long scans are kept; 0 for forever. */
+  retentionDays: number
+  /** The link's hit count: people since it was created. */
+  allTime: number
+  /** People in the period. */
+  scans: number
+  /** Crawlers, link previews and scripts in the period. */
+  bots: number
+  /** One entry per day of the period, oldest first. */
+  daily: { date: string; scans: number; bots: number }[]
+  devices: { device: DeviceClass; scans: number }[]
+  /** Top referrer hosts; a null host counts scans without a referrer. */
+  referrers: { host: string | null; scans: number }[]
+}
+
 export interface LinkInput {
   url: string
   /** ISO timestamp, or null for a link that never expires. */
   expiresAt: string | null
+  /** Fallback for an expired or deleted link; empty or absent for the 410 page. */
+  goneUrl?: string | null
+  /** Text for the 410 page; empty or absent for the default wording. */
+  goneMessage?: string | null
+}
+
+/**
+ * The request body for a create or an edit. Empty options are left out: the server treats an
+ * absent option as "none", and an edit replaces the options, so leaving one out clears it.
+ */
+function linkBody(input: LinkInput): string {
+  return JSON.stringify({
+    url: input.url,
+    expiresAt: input.expiresAt ?? undefined,
+    goneUrl: input.goneUrl?.trim() || undefined,
+    goneMessage: input.goneMessage?.trim() || undefined,
+  })
 }
 
 /** The formats the server can decode, which is narrower than what a browser can display. */
@@ -249,7 +296,7 @@ export async function createLink(input: LinkInput, signal?: AbortSignal): Promis
   const response = await send('/api/links', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
+    body: linkBody(input),
     signal,
   })
 
@@ -273,7 +320,7 @@ export async function updateLink(
   const response = await send(`/api/links/${encodeURIComponent(code)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: input.url, expiresAt: input.expiresAt ?? undefined }),
+    body: linkBody(input),
     signal,
   })
 
@@ -301,6 +348,21 @@ export async function listLinks(
     throw new Error(await problemDetail(response))
   }
   return (await response.json()) as LinkPage
+}
+
+/** Scan statistics for one link over the last `days` UTC days. */
+export async function getLinkStats(
+  code: string,
+  days: number,
+  signal?: AbortSignal,
+): Promise<LinkStats> {
+  const response = await send(`/api/links/${encodeURIComponent(code)}/stats?days=${days}`, {
+    signal,
+  })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return (await response.json()) as LinkStats
 }
 
 /** Soft deletes a link: its code then answers 410 Gone instead of 404. */

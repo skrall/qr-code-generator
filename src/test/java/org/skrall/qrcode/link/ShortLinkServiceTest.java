@@ -60,4 +60,57 @@ class ShortLinkServiceTest {
                 .isInstanceOf(InvalidLinkException.class)
                 .hasMessageContaining("2048");
     }
+
+    @Test
+    void aFallbackIsCheckedLikeADestination() {
+        assertThat(ShortLinkService.goneUrl(null)).isNull();
+        assertThat(ShortLinkService.goneUrl("   ")).isNull();
+        assertThat(ShortLinkService.goneUrl(" https://example.com/caf\u00e9 "))
+                .isEqualTo("https://example.com/caf%C3%A9");
+
+        assertThatThrownBy(() -> ShortLinkService.goneUrl("javascript:alert(1)"))
+                .isInstanceOf(InvalidLinkException.class)
+                .hasMessage("goneUrl must be an absolute http or https URL");
+        assertThatThrownBy(() -> ShortLinkService.goneUrl("data:text/html,<script>alert(1)</script>"))
+                .isInstanceOf(InvalidLinkException.class)
+                .hasMessageContaining("http or https");
+        assertThatThrownBy(() -> ShortLinkService.goneUrl("https://user:pw@example.com"))
+                .isInstanceOf(InvalidLinkException.class)
+                .hasMessage("goneUrl must not contain credentials");
+        assertThatThrownBy(() -> ShortLinkService.goneUrl("https://example.com/" + "a".repeat(2100)))
+                .isInstanceOf(InvalidLinkException.class)
+                .hasMessage("goneUrl must be at most 2048 characters");
+    }
+
+    @Test
+    void aMessageIsTrimmedAndKeepsItsLineBreaks() {
+        assertThat(ShortLinkService.goneMessage(null)).isNull();
+        assertThat(ShortLinkService.goneMessage(" \n ")).isNull();
+        assertThat(ShortLinkService.goneMessage("  The sale is over.\r\nSee you next year!  "))
+                .isEqualTo("The sale is over.\nSee you next year!");
+        assertThat(ShortLinkService.goneMessage("<b>markup</b> is kept as text"))
+                .isEqualTo("<b>markup</b> is kept as text");
+    }
+
+    @Test
+    void aMessageIsLengthLimitedAndHasNoControlCharacters() {
+        assertThat(ShortLinkService.goneMessage("a".repeat(280))).hasSize(280);
+        assertThatThrownBy(() -> ShortLinkService.goneMessage("a".repeat(281)))
+                .isInstanceOf(InvalidLinkException.class)
+                .hasMessage("goneMessage must be at most 280 characters");
+        assertThatThrownBy(() -> ShortLinkService.goneMessage("bell\u0007"))
+                .isInstanceOf(InvalidLinkException.class)
+                .hasMessageContaining("control characters");
+    }
+
+    @Test
+    void theConfiguredDefaultIsValidatedAtStartup() {
+        assertThat(new GoneProperties(null).goneUrl()).isNull();
+        assertThat(new GoneProperties(" ").goneUrl()).isNull();
+        assertThat(new GoneProperties("https://example.com/gone").goneUrl())
+                .isEqualTo("https://example.com/gone");
+        assertThatThrownBy(() -> new GoneProperties("ftp://example.com"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("app.links.gone-url");
+    }
 }

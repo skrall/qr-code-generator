@@ -35,7 +35,11 @@ by the same process.
   `#` fragment, never sent to the server; secrets such as a WiFi password are always left out, and
   a design with images is shared as a link to the saved design instead.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
-  expiry, a searchable list and hit counts.
+  expiry, a searchable list and hit counts. An expired or removed code can send scans to a
+  fallback URL or show a friendly page with your own message.
+- **Scan analytics** — scans per day, people versus bots and link previews, devices and top
+  referrers for each short link, over 7, 30 or 90 days. No IP addresses or user agents are stored,
+  and scans are pruned after a configurable retention (365 days by default).
 - **Sign-in** — HTTP Basic by default, or an identity provider (Okta, Entra ID), or a trusted
   reverse proxy, with an operator role for changing short links. The redirects stay public.
 - **PNG, SVG and PDF** — PNG for anything that needs a bitmap, SVG for the web and for embedding

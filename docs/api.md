@@ -410,7 +410,9 @@ curl -X POST http://localhost:8080/api/links \
   "createdAt": "2026-11-11T20:00:00Z",
   "expiresAt": "2026-12-01T00:00:00Z",
   "hitCount": 0,
-  "lastHitAt": null
+  "lastHitAt": null,
+  "goneUrl": null,
+  "goneMessage": null
 }
 ```
 
@@ -423,13 +425,89 @@ that has already been printed can be repointed at a new destination. An expired 
 revived by giving it a future expiry or by clearing it. `DELETE /api/links/{code}` soft deletes
 one, after which its code answers `410 Gone` rather than `404`.
 
+`goneUrl` and `goneMessage` (both optional, on create and edit) say what a scan gets once the link
+has expired or been deleted:
+
+- `goneUrl` — redirect there instead of showing a page. Checked exactly like `url`: absolute
+  `http`/`https` only, at most 2048 characters, no credentials, non-ASCII percent-encoded.
+- `goneMessage` — plain text, at most 280 characters, shown on the page instead of the default
+  wording. Line breaks are kept; other control characters are rejected. Markup is not
+  interpreted: the text is HTML-escaped when shown.
+
+Blank values mean "none". An edit replaces both, like the expiry: leaving one out clears it. Only
+an OPERATOR may set them, as with every other change to a link.
+
 `GET /r/{code}` is the public redirect. It answers `302 Found` with `Cache-Control: no-store`, so
-every scan reaches the server and the hit count stays honest. An unknown code is `404`; an expired
-or deleted one is `410`.
+every scan reaches the server and the hit count stays honest. Otherwise:
+
+| Code | Answer |
+|---|---|
+| Live | `302` to the destination, counted as a hit |
+| Expired or deleted, with a `goneUrl` | `302` to the `goneUrl`, not counted |
+| Expired or deleted, with a `goneMessage` | `410` page showing the message |
+| Expired or deleted, neither set, `app.links.gone-url` set | `302` to that URL, not counted |
+| Expired or deleted, otherwise | `410` page with the default wording |
+| Unknown | `404` page |
+
+`app.links.gone-url` (`APP_LINKS_GONE_URL`) is an optional site-wide fallback, validated like a
+destination at startup. It never applies to an unknown code. The `404` and `410` pages are small
+self-contained HTML (inline CSS, light and dark, sized for a phone) that never show the old
+destination. Both carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
+`X-Robots-Tag: noindex`, `X-Content-Type-Options: nosniff` and a
+`Content-Security-Policy` of `default-src 'none'` that allows only the page's own stylesheet by
+hash: no scripts, images, frames or forms. A fallback redirect has the same headers as a live one.
 
 The short URL is composed from `app.public-base-url`, which defaults to `http://localhost:8080`.
 Set `APP_PUBLIC_BASE_URL` to the address a scanner can reach — a LAN address, or the public name
 behind a reverse proxy — before generating codes.
+
+### Scan analytics
+
+Each redirect to a live link's destination records one scan. A `404`, a `410` and the redirect
+of an expired or deleted link to its fallback URL record nothing.
+`GET /api/links/{code}/stats?days=30` reports on the scans; VIEWER and OPERATOR may both read
+it, as with the list.
+
+```bash
+curl -u operator:change-me-on-deploy 'http://localhost:8080/api/links/aB3dE5fG7/stats?days=7'
+```
+
+```json
+{
+  "code": "aB3dE5fG7", "deleted": false, "days": 7,
+  "from": "2026-11-08", "to": "2026-11-14", "timeZone": "UTC", "retentionDays": 365,
+  "allTime": 41, "scans": 12, "bots": 3,
+  "daily": [{"date": "2026-11-08", "scans": 0, "bots": 0}, …, {"date": "2026-11-14", "scans": 5, "bots": 1}],
+  "devices": [{"device": "IOS", "scans": 7}, {"device": "ANDROID", "scans": 5}],
+  "referrers": [{"host": null, "scans": 10}, {"host": "l.instagram.com", "scans": 2}]
+}
+```
+
+- **Period and time zone.** `days` is 1 to 365 (default 30) and covers that many UTC calendar
+  days, today included. `daily` has one entry per day, oldest first, with zeros for days without
+  scans. Days are UTC whatever the server's or the viewer's zone.
+- **People and bots.** Crawlers, chat link previews (Slackbot, facebookexternalhit, Twitterbot,
+  WhatsApp, Googlebot and the like) and scripted clients (curl, python-requests…) are redirected
+  as usual but flagged as bots. They are counted in `bots` and left out of `scans`, `devices` and
+  `referrers`. A request without a `User-Agent` counts as a person.
+- **Hit count.** `hitCount` on a link, and `allTime` here, counts people only: a bot does not
+  move it or `lastHitAt`. It is never pruned, so it can exceed what the retained scans add up to.
+- **Devices.** `IOS`, `ANDROID`, `WINDOWS`, `MACOS`, `LINUX` or `OTHER`, from simple substring
+  rules on the `User-Agent`. An iPad asking for desktop sites reports itself as a Mac and is
+  counted as macOS; ChromeOS is `OTHER`.
+- **Referrers.** The ten most frequent hosts; `null` counts scans with no referrer, which is
+  usual for a camera app.
+- **Deleted links.** A deleted link still answers, with `deleted: true`, so its history stays
+  readable. An unknown code is `404`.
+
+**What is stored.** Per scan: the link, the time and its UTC day, the device class, the bot flag
+and the referrer's host. **No IP address and no `User-Agent` is stored**, and the referrer is
+reduced to its host, because a full referrer URL can carry tokens in its query.
+
+**Retention.** A daily job (03:17 UTC) deletes scans from before the last
+`app.links.scan-retention-days` days (env `APP_LINKS_SCAN_RETENTION_DAYS`, default 365); `0`
+keeps them forever. Recording a scan never holds up or breaks the redirect: it is written after the
+hit count commits, in its own transaction, and a failure is logged and ignored.
 
 
 ## Saved designs
