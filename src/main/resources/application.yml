@@ -14,6 +14,18 @@ spring:
     # empty body with a status.
     problemdetails:
       enabled: true
+    # A batch ZIP is streamed from an async thread while it renders. Up to 500 large, styled
+    # codes take minutes, not the container's default 30 seconds.
+    async:
+      request-timeout: 10m
+
+  # The batch upload: a CSV of at most 1 MB (checked by the app, with a 400 that says so) and an
+  # options part whose style may carry three images of up to 2 MB each as base64. These caps are
+  # the backstop above that; past them the container answers 413.
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
 
   # Short links are user data: they have to survive a restart, so the default is a file rather
   # than an in-memory database. AUTO_SERVER lets a second process (such as an H2 console) open

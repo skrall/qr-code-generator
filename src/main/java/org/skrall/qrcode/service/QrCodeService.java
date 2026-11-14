@@ -72,14 +72,57 @@ public class QrCodeService {
         RenderOptions.from(style, LogoImage.decode(style == null ? null : style.logo()));
     }
 
+    /**
+     * Decodes and checks a style once, for rendering many payloads with it.
+     *
+     * <p>The images are decoded and washed here rather than per payload, which is what makes a
+     * batch with a background image affordable. It fails as {@link #validate} does.
+     */
+    public Styled styled(QrStyle style) {
+        return new Styled(options(style));
+    }
+
+    /** A style ready to render, with its images decoded. */
+    public final class Styled {
+
+        private final RenderOptions options;
+
+        private Styled(RenderOptions options) {
+            this.options = options;
+        }
+
+        /**
+         * Encodes the payload once and renders it in each format asked for.
+         *
+         * @throws QrEncodingException when the payload does not fit
+         * @throws org.skrall.qrcode.FrameException when a frame leaves too little quiet zone
+         */
+        public Map<QrFormat, byte[]> render(String data, Iterable<QrFormat> formats) {
+            Prepared prepared = prepare(data, options);
+            Map<QrFormat, byte[]> images = new EnumMap<>(QrFormat.class);
+            for (QrFormat format : formats) {
+                images.put(format, switch (format) {
+                    case PNG -> pngRenderer.render(prepared.matrix(), prepared.options());
+                    case SVG -> svgRenderer.render(prepared.matrix(), prepared.options());
+                });
+            }
+            return images;
+        }
+    }
+
     private record Prepared(BitMatrix matrix, RenderOptions options) {
     }
 
+    private static RenderOptions options(QrStyle style) {
+        return RenderOptions.from(style, LogoImage.decode(style == null ? null : style.logo()));
+    }
+
     private static Prepared prepare(QrCodeRequest request) {
-        QrStyle style = request.style();
-        LogoImage logo = LogoImage.decode(style == null ? null : style.logo());
-        RenderOptions options = RenderOptions.from(style, logo);
-        BitMatrix matrix = encode(request.data(), options.errorCorrection());
+        return prepare(request.data(), options(request.style()));
+    }
+
+    private static Prepared prepare(String data, RenderOptions options) {
+        BitMatrix matrix = encode(data, options.errorCorrection());
         if (options.frame() != null) {
             // Only now is the module size known, which is what the quiet zone is measured in.
             options.frame().requireQuietZone(matrix.getWidth(), options.size(), options.margin());

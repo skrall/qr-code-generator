@@ -27,6 +27,8 @@ by the same process.
   (EPC QR code, with IBAN checking).
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
   everyone who signs in, and export or import it as a JSON file.
+- **Batch generation** — upload a CSV of payloads, render every row with the current style or a
+  saved design, and download the PNGs or SVGs as a ZIP, with a report of any rows skipped.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
   expiry, a searchable list and hit counts.
 - **Sign-in** — HTTP Basic by default, or an identity provider (Okta, Entra ID), or a trusted

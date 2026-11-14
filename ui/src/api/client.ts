@@ -380,6 +380,48 @@ export async function deleteDesign(id: number): Promise<void> {
   }
 }
 
+export type BatchFormat = QrFormat | 'both'
+
+/** How every row of a batch is rendered: with a style, or with a saved design's. */
+export interface BatchOptions {
+  format: BatchFormat
+  style?: QrStyle
+  designId?: number
+}
+
+/**
+ * Uploads a CSV of payloads and returns the ZIP of codes the server renders from it.
+ *
+ * <p>Multipart, with the options as a JSON part. No Content-Type is set here: the browser adds
+ * the multipart boundary itself.
+ */
+export async function renderBatch(
+  csv: File,
+  options: BatchOptions,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const form = new FormData()
+  form.append('csv', csv, csv.name)
+  form.append(
+    'options',
+    new Blob(
+      [
+        JSON.stringify({
+          format: options.format,
+          style: options.style ? apiStyle(options.style) : undefined,
+          designId: options.designId,
+        }),
+      ],
+      { type: 'application/json' },
+    ),
+  )
+  const response = await send('/api/qr-codes/batch', { method: 'POST', body: form, signal })
+  if (!response.ok) {
+    throw new Error(await problemDetail(response))
+  }
+  return response.blob()
+}
+
 /** Who is signed in, and whether they may create, edit and delete short links. */
 export interface CurrentUser {
   /** Null when sign-in is turned off on the server. */

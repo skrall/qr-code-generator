@@ -152,6 +152,18 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - Editing a link changes its destination and expiry but never its code. The code is what a
   printed QR image carries, so replacing it would defeat the point of editing.
 
+## Batch
+
+- Everything that can reject a batch as a whole (CSV, limits, design lookup, style) happens in
+  `BatchService.prepare`, before the response starts. Once the ZIP is streaming the status is
+  sent, so a row that fails goes into `report.csv`; it must never throw out of `writeTo`.
+- The ZIP is written on an async thread with no security context. Resolve the caller and the
+  design in `prepare`, never inside the stream.
+- The style is decoded once per batch (`QrCodeService.styled`), not per row: a background image
+  is washed on decode, which is the expensive part.
+- The UI's CSV preview (`ui/src/batch.ts`) only counts rows; the server's `CsvReader` is the
+  authority. Keep the two on the same rules (blank lines skipped, `data` header case-insensitive).
+
 ## UI
 
 - Never name a prop `style` (or `class`). Vue clones a reactive object under those keys into a
