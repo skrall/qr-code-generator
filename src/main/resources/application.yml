@@ -82,6 +82,11 @@ app:
   links:
     gone-url: ${APP_LINKS_GONE_URL:}
 
+    # Scan analytics. Each redirect stores its UTC day, a device class, a bot flag and the
+    # referrer's host (never an IP address or a user agent). A daily cleanup deletes scans older
+    # than this many days; 0 keeps them forever. The link's hit count is never pruned.
+    scan-retention-days: ${APP_LINKS_SCAN_RETENTION_DAYS:365}
+
 # Loopback only by default: this is a local tool, and a QR generator on an open port invites
 # strangers to use it as a rendering service. Override SERVER_ADDRESS when it should be
 # reachable from another machine.

@@ -7,13 +7,16 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import org.skrall.qrcode.link.ScanSource;
 import org.skrall.qrcode.link.ShortLinkService;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.HtmlUtils;
 
@@ -42,8 +45,12 @@ public class RedirectController {
     @ApiResponse(responseCode = "302", description = "Redirect to the destination, or to the fallback of an expired or deleted link")
     @ApiResponse(responseCode = "404", description = "No link has that code")
     @ApiResponse(responseCode = "410", description = "The link expired or was deleted")
-    public ResponseEntity<String> redirect(@PathVariable String code) {
-        ShortLinkService.Resolution resolution = service.resolve(code);
+    public ResponseEntity<String> redirect(
+            @PathVariable String code,
+            @RequestHeader(name = HttpHeaders.USER_AGENT, required = false) String userAgent,
+            @RequestHeader(name = HttpHeaders.REFERER, required = false) String referer) {
+        // Only the derived device class, bot flag and referrer host are kept; see ScanSource.
+        ShortLinkService.Resolution resolution = service.resolve(code, ScanSource.of(userAgent, referer));
 
         return switch (resolution.status()) {
             case FOUND -> ResponseEntity.status(HttpStatus.FOUND)

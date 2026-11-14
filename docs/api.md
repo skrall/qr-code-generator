@@ -419,6 +419,54 @@ The short URL is composed from `app.public-base-url`, which defaults to `http://
 Set `APP_PUBLIC_BASE_URL` to the address a scanner can reach — a LAN address, or the public name
 behind a reverse proxy — before generating codes.
 
+### Scan analytics
+
+Each redirect to a live link's destination records one scan. A `404`, a `410` and the redirect
+of an expired or deleted link to its fallback URL record nothing.
+`GET /api/links/{code}/stats?days=30` reports on the scans; VIEWER and OPERATOR may both read
+it, as with the list.
+
+```bash
+curl -u operator:change-me-on-deploy 'http://localhost:8080/api/links/aB3dE5fG7/stats?days=7'
+```
+
+```json
+{
+  "code": "aB3dE5fG7", "deleted": false, "days": 7,
+  "from": "2026-11-08", "to": "2026-11-14", "timeZone": "UTC", "retentionDays": 365,
+  "allTime": 41, "scans": 12, "bots": 3,
+  "daily": [{"date": "2026-11-08", "scans": 0, "bots": 0}, …, {"date": "2026-11-14", "scans": 5, "bots": 1}],
+  "devices": [{"device": "IOS", "scans": 7}, {"device": "ANDROID", "scans": 5}],
+  "referrers": [{"host": null, "scans": 10}, {"host": "l.instagram.com", "scans": 2}]
+}
+```
+
+- **Period and time zone.** `days` is 1 to 365 (default 30) and covers that many UTC calendar
+  days, today included. `daily` has one entry per day, oldest first, with zeros for days without
+  scans. Days are UTC whatever the server's or the viewer's zone.
+- **People and bots.** Crawlers, chat link previews (Slackbot, facebookexternalhit, Twitterbot,
+  WhatsApp, Googlebot and the like) and scripted clients (curl, python-requests…) are redirected
+  as usual but flagged as bots. They are counted in `bots` and left out of `scans`, `devices` and
+  `referrers`. A request without a `User-Agent` counts as a person.
+- **Hit count.** `hitCount` on a link, and `allTime` here, counts people only: a bot does not
+  move it or `lastHitAt`. It is never pruned, so it can exceed what the retained scans add up to.
+- **Devices.** `IOS`, `ANDROID`, `WINDOWS`, `MACOS`, `LINUX` or `OTHER`, from simple substring
+  rules on the `User-Agent`. An iPad asking for desktop sites reports itself as a Mac and is
+  counted as macOS; ChromeOS is `OTHER`.
+- **Referrers.** The ten most frequent hosts; `null` counts scans with no referrer, which is
+  usual for a camera app.
+- **Deleted links.** A deleted link still answers, with `deleted: true`, so its history stays
+  readable. An unknown code is `404`.
+
+**What is stored.** Per scan: the link, the time and its UTC day, the device class, the bot flag
+and the referrer's host. **No IP address and no `User-Agent` is stored**, and the referrer is
+reduced to its host, because a full referrer URL can carry tokens in its query.
+
+**Retention.** A daily job (03:17 UTC) deletes scans from before the last
+`app.links.scan-retention-days` days (env `APP_LINKS_SCAN_RETENTION_DAYS`, default 365); `0`
+keeps them forever. Recording a scan never holds up or breaks the redirect: it is written after the
+hit count commits, in its own transaction, and a failure is logged and ignored.
+
 
 ## Saved designs
 

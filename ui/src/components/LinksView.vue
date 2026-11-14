@@ -5,10 +5,12 @@ import { copyText } from '../clipboard'
 import { formatDate, toDateTimeInput } from '../format'
 import { normalizeUrl } from '../qr/types'
 import GoneOptionsFields from './GoneOptionsFields.vue'
+import LinkStatsDialog from './LinkStatsDialog.vue'
 
 /**
- * The stored links, with a debounced search, an edit dialog and a two-step delete. A VIEWER sees
- * the list without the edit and delete actions, which the server would refuse.
+ * The stored links, with a debounced search, scan statistics, an edit dialog and a two-step
+ * delete. A VIEWER sees the list and the statistics without the edit and delete actions, which
+ * the server would refuse.
  */
 withDefaults(defineProps<{ operator?: boolean }>(), { operator: true })
 
@@ -24,6 +26,7 @@ const pendingDelete = ref<string | null>(null)
 const deleting = ref<string | null>(null)
 const copiedCode = ref<string | null>(null)
 
+const statsFor = ref<ShortLink | null>(null)
 const editing = ref<ShortLink | null>(null)
 const editTarget = ref('')
 const editExpiry = ref('')
@@ -201,7 +204,7 @@ onUnmounted(() => {
             <th>Expires</th>
             <th class="numeric">Hits</th>
             <th>Last hit</th>
-            <th v-if="operator"><span class="visually-hidden">Actions</span></th>
+            <th><span class="visually-hidden">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -219,16 +222,25 @@ onUnmounted(() => {
             <td>{{ link.expiresAt ? formatDate(link.expiresAt) : 'Never' }}</td>
             <td class="numeric">{{ link.hitCount }}</td>
             <td>{{ formatDate(link.lastHitAt) }}</td>
-            <td v-if="operator" class="cell-actions">
-              <button type="button" @click="startEdit(link)">Edit</button>
+            <td class="cell-actions">
               <button
                 type="button"
-                class="danger"
-                :disabled="deleting === link.code"
-                @click="remove(link.code)"
+                :aria-label="`Stats for ${link.code}`"
+                @click="statsFor = link"
               >
-                {{ pendingDelete === link.code ? 'Confirm' : 'Delete' }}
+                Stats
               </button>
+              <template v-if="operator">
+                <button type="button" @click="startEdit(link)">Edit</button>
+                <button
+                  type="button"
+                  class="danger"
+                  :disabled="deleting === link.code"
+                  @click="remove(link.code)"
+                >
+                  {{ pendingDelete === link.code ? 'Confirm' : 'Delete' }}
+                </button>
+              </template>
             </td>
           </tr>
         </tbody>
@@ -240,6 +252,8 @@ onUnmounted(() => {
       <span>Page {{ page + 1 }} of {{ pageCount }} · {{ total }} {{ total === 1 ? 'link' : 'links' }}</span>
       <button type="button" :disabled="page + 1 >= pageCount" @click="go(1)">Next</button>
     </div>
+
+    <LinkStatsDialog v-if="statsFor" :link="statsFor" @close="statsFor = null" />
 
     <div v-if="editing" class="edit-overlay" @click.self="cancelEdit">
       <form

@@ -5,11 +5,14 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.time.Instant;
 import org.skrall.qrcode.link.LinkProperties;
+import org.skrall.qrcode.link.ScanService;
 import org.skrall.qrcode.link.ShortLink;
 import org.skrall.qrcode.link.ShortLinkService;
 import org.skrall.qrcode.model.CreateLinkRequest;
 import org.skrall.qrcode.model.LinkPageResponse;
+import org.skrall.qrcode.model.LinkStatsResponse;
 import org.skrall.qrcode.model.ShortLinkResponse;
 import org.skrall.qrcode.model.UpdateLinkRequest;
 import org.springframework.data.domain.Page;
@@ -29,18 +32,20 @@ import org.springframework.web.bind.annotation.RestController;
  * Stores destinations and hands back the short links that redirect to them.
  *
  * <p>Creating, editing and deleting a link need the OPERATOR role whenever security is on; a
- * VIEWER may list them. Method security is off under {@code app.security.mode=none}, so the
- * annotations are inert there.
+ * VIEWER may list them and read their scan statistics. Method security is off under
+ * {@code app.security.mode=none}, so the annotations are inert there.
  */
 @RestController
 @RequestMapping("/api/links")
 public class LinkController {
 
     private final ShortLinkService service;
+    private final ScanService scans;
     private final LinkProperties properties;
 
-    public LinkController(ShortLinkService service, LinkProperties properties) {
+    public LinkController(ShortLinkService service, ScanService scans, LinkProperties properties) {
         this.service = service;
+        this.scans = scans;
         this.properties = properties;
     }
 
@@ -82,6 +87,27 @@ public class LinkController {
                 links.getTotalElements(),
                 links.getNumber(),
                 links.getSize());
+    }
+
+    @GetMapping("/{code}/stats")
+    @Operation(summary = "Scan statistics for a short link", description = """
+            Scans over the last `days` UTC calendar days, today included: people and bots, one
+            zero-filled entry per day, people by device class and the top ten referrer hosts.
+            `allTime` is the link's hit count, which counts people and is never pruned. A deleted
+            link still answers, so its history stays readable. No IP address or user agent is
+            stored, only the derived device class, a bot flag and the referrer's host.
+            """)
+    @ApiResponse(responseCode = "200", description = "The link's scan statistics")
+    @ApiResponse(responseCode = "400", description = "`days` is outside 1 to 365")
+    @ApiResponse(responseCode = "404", description = "No link has that code")
+    public ResponseEntity<LinkStatsResponse> stats(
+            @PathVariable String code,
+            @Parameter(description = "Length of the period in UTC days, today included (1 to 365)")
+            @RequestParam(defaultValue = "30") int days) {
+
+        return scans.stats(code, days, Instant.now())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @PreAuthorize("hasRole('OPERATOR')")
