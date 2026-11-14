@@ -12,9 +12,9 @@ import java.util.regex.Pattern;
  * <p>A name keeps letters, digits, {@code .}, {@code -} and {@code _}; anything else, path
  * separators included, becomes {@code _}. Runs of dots collapse to one, so {@code ..} cannot
  * survive, and leading or trailing dots, dashes and underscores go, so no name is hidden or
- * empty-looking. Names are cut to {@link #MAX_LENGTH} characters, a trailing {@code .png} or
- * {@code .svg} is dropped because the extension is added per format, and a Windows device name
- * such as {@code CON} gets a {@code _} appended. Names are unique without regard to case, since
+ * empty-looking. Names are cut to {@link #MAX_LENGTH} characters, a trailing {@code .png},
+ * {@code .svg} or {@code .pdf} is dropped because the extension is added per format, and a
+ * Windows device name such as {@code CON} gets a {@code _} appended. Names are unique without regard to case, since
  * the archive may be extracted on a case-insensitive file system.
  *
  * <p>Not thread-safe: one instance per batch.
@@ -27,7 +27,7 @@ public final class FileNames {
     private static final Pattern DOTS = Pattern.compile("\\.{2,}");
     private static final Pattern UNDERSCORES = Pattern.compile("_{2,}");
     private static final Pattern EDGES = Pattern.compile("^[._-]+|[._-]+$");
-    private static final Pattern IMAGE_EXTENSION = Pattern.compile("(?i)\\.(png|svg)$");
+    private static final Pattern IMAGE_EXTENSION = Pattern.compile("(?i)\\.(png|svg|pdf)$");
     private static final Pattern DEVICE = Pattern.compile("(?i)(con|prn|aux|nul|com[0-9]|lpt[0-9])(\\..*)?");
 
     private final Set<String> taken = new HashSet<>();

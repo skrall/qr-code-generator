@@ -53,6 +53,16 @@ class BasicSecurityTest {
     }
 
     @Test
+    void scanStatisticsNeedASignIn() throws Exception {
+        ShortLink link = links.create("https://example.com/stats", null);
+
+        mockMvc.perform(get("/api/links/{code}/stats", link.getCode()))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/links/{code}/stats", link.getCode()).with(httpBasic("operator", PASSWORD)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void theUiAndRenderingNeedASignIn() throws Exception {
         mockMvc.perform(get("/")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/login")).andExpect(status().isUnauthorized());
@@ -82,6 +92,42 @@ class BasicSecurityTest {
     }
 
     @Test
+    void anAnonymousScanOfAGoneLinkGetsItsPageOrFallback() throws Exception {
+        ShortLink withMessage = links.create("https://example.com/msg", null, null, "Event over <3");
+        links.delete(withMessage.getCode());
+        ShortLink withFallback = links.create("https://example.com/fb", null,
+                "https://example.com/next", null);
+        links.delete(withFallback.getCode());
+
+        mockMvc.perform(get("/r/{code}", withMessage.getCode()))
+                .andExpect(status().isGone())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Event over &lt;3")))
+                .andExpect(header().exists("Content-Security-Policy"));
+        mockMvc.perform(get("/r/{code}", withFallback.getCode()))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "https://example.com/next"));
+    }
+
+    @Test
+    void aViewerCannotSetTheGoneOptions() throws Exception {
+        ShortLink link = links.create("https://example.com/viewer-gone", null);
+        String options = """
+                {"url":"https://example.com","goneUrl":"https://example.com/x","goneMessage":"hi"}""";
+
+        mockMvc.perform(post("/api/links").with(httpBasic("reader", PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON).content(options))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/links/{code}", link.getCode()).with(httpBasic("reader", PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON).content(options))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/api/links/{code}", link.getCode()).with(httpBasic("operator", PASSWORD))
+                        .contentType(MediaType.APPLICATION_JSON).content(options))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goneMessage").value("hi"));
+    }
+
+    @Test
     void healthAndTheApiDocumentAnswerAnyone() throws Exception {
         mockMvc.perform(get("/actuator/health")).andExpect(status().isOk());
         mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
@@ -99,6 +145,9 @@ class BasicSecurityTest {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/api/links").with(httpBasic("reader", PASSWORD)))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/links/{code}/stats", link.getCode()).with(httpBasic("reader", PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(link.getCode()));
 
         mockMvc.perform(post("/api/links").with(httpBasic("reader", PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON).content(LINK))

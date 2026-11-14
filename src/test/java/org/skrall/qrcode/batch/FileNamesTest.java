@@ -32,7 +32,8 @@ class FileNamesTest {
     void dropsTheImageExtensionItWillAddItself() {
         assertThat(FileNames.sanitise("logo.PNG")).isEqualTo("logo");
         assertThat(FileNames.sanitise("logo.svg")).isEqualTo("logo");
-        assertThat(FileNames.sanitise("report.pdf")).isEqualTo("report.pdf");
+        assertThat(FileNames.sanitise("flyer.PDF")).isEqualTo("flyer");
+        assertThat(FileNames.sanitise("report.txt")).isEqualTo("report.txt");
     }
 
     @Test

@@ -55,7 +55,7 @@ class TransparentBackgroundTest {
     private static final int MODULE = 10;
 
     private final QrCodeService service =
-            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker());
+            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new PdfQrRenderer(), new ScanChecker());
 
     @Test
     void leavesTheQuietZoneAndLightModulesTransparentAndDarkModulesOpaque() throws IOException {

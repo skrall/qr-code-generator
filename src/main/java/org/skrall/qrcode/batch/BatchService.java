@@ -23,6 +23,7 @@ import org.skrall.qrcode.LogoException;
 import org.skrall.qrcode.QrEncodingException;
 import org.skrall.qrcode.design.DesignService;
 import org.skrall.qrcode.model.BatchOptions;
+import org.skrall.qrcode.model.Dpi;
 import org.skrall.qrcode.model.QrCodeRequest;
 import org.skrall.qrcode.model.QrFormat;
 import org.skrall.qrcode.model.QrStyle;
@@ -95,7 +96,7 @@ public class BatchService {
         QrStyle style = effective.designId() == null
                 ? effective.style()
                 : designs.get(effective.designId(), caller).style();
-        return new Batch(rows, effective.formats(), qrCodes.styled(style));
+        return new Batch(rows, effective.formats(), Dpi.check(effective.dpi()), qrCodes.styled(style));
     }
 
     static List<Row> read(String text) {
@@ -144,11 +145,13 @@ public class BatchService {
 
         private final List<Row> rows;
         private final List<QrFormat> formats;
+        private final Integer dpi;
         private final QrCodeService.Styled styled;
 
-        private Batch(List<Row> rows, List<QrFormat> formats, QrCodeService.Styled styled) {
+        private Batch(List<Row> rows, List<QrFormat> formats, Integer dpi, QrCodeService.Styled styled) {
             this.rows = rows;
             this.formats = formats;
+            this.dpi = dpi;
             this.styled = styled;
         }
 
@@ -190,7 +193,7 @@ public class BatchService {
             }
             Map<QrFormat, byte[]> images;
             try {
-                images = styled.render(row.data(), formats);
+                images = styled.render(row.data(), formats, dpi);
             } catch (QrEncodingException | FrameException | LogoException | FinderArtworkException
                     | BackgroundImageException | GradientException e) {
                 return e.getMessage();
@@ -206,13 +209,13 @@ public class BatchService {
     }
 
     /**
-     * Writes one entry. A PNG is already compressed, so it is stored rather than deflated again;
-     * an SVG is text and deflates well.
+     * Writes one entry. A PNG is already compressed, and so are a PDF's streams, so those are
+     * stored rather than deflated again; an SVG is text and deflates well.
      */
     private static void write(ZipOutputStream zip, String name, byte[] bytes, QrFormat format)
             throws IOException {
         ZipEntry entry = new ZipEntry(name);
-        if (format == QrFormat.PNG) {
+        if (format != QrFormat.SVG) {
             CRC32 crc = new CRC32();
             crc.update(bytes);
             entry.setMethod(ZipEntry.STORED);

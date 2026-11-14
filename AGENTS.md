@@ -25,7 +25,16 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 
 ## Rendering
 
-- `PngQrRenderer` and `SvgQrRenderer` implement the same geometry. Change both together.
+- The geometry lives in `QrPainter`, which draws the PNG (`Java2dCanvas`) and the PDF
+  (`PdfCanvas`). `SvgQrRenderer` mirrors it as strings. Change `QrPainter` and the SVG together;
+  a canvas only fills, clips and places images, and never decides a shape or a position.
+- `Canvas` has no clear: a PDF cannot erase. Express "leave this unpainted" as a ring
+  (`fillRing`, `drawImageInRing`); Java2D fills then clears, the PDF uses an even-odd path.
+- A refactor of `QrPainter` or `Java2dCanvas` should leave the PNG byte for byte the same: dump
+  `RenderFixtures.all()` as PNGs before and after and compare. `PdfQrRendererTest` rasterises
+  every fixture's PDF with PDFBox and compares it with the PNG, so a PDF-only drift fails there.
+- `dpi` is an output setting (query parameter, batch option), never part of the style. A PNG
+  gets a `pHYs` chunk only when `dpi` is sent, so existing PNGs are unchanged.
 - The quiet zone is applied in module units by the renderers, not by ZXing (`MARGIN=0`).
 - The three finder patterns are excluded from the module pass and drawn as whole shapes, so
   their rings stay concentric.
@@ -52,19 +61,19 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   check is on the two stops only, which is exact because both formats interpolate in sRGB and
   luminance is linear in sRGB. Adding stops or a linear-light interpolation would break that.
 - A frame's layout and text outlines come from `Frame`; both renderers fill those shapes and
-  translate the code into place. Don't set frame text with SVG `<text>` or a system font: the
-  formats would stop matching. Keep frame lengths whole pixels so the code's grid is unchanged.
+  translate the code into place. Don't set frame text with SVG `<text>`, a PDF font or a system
+  font: the formats would stop matching. Keep frame lengths whole pixels so the code's grid is unchanged.
 - `transparentBackground` skips every background fill, the frame's card included, and clears each
-  eye's gap (PNG: `AlphaComposite.Clear`; SVG: a mask over the outer shape) rather than painting
-  it. `background` stays the declared surface: contrast checks use it, and `ScanChecker` flattens
+  eye's gap (PNG: `AlphaComposite.Clear`; PDF: an even-odd ring; SVG: a mask over the outer
+  shape) rather than painting it. `background` stays the declared surface: contrast checks use it, and `ScanChecker` flattens
   over it, not over white. A background image is rejected with it; the logo plate stays opaque.
 - Frame text is set in the bundled Inter (`src/main/resources/fonts`, OFL). Text it cannot draw is
   rejected, not drawn as boxes. Swapping the font changes which text is accepted.
 
 ## Scan check
 
-- `ScanChecker` reads `PngQrRenderer.draw`'s pixels; there is no separate SVG check because the
-  geometry is shared. A renderer change that alters what is drawn changes the verdicts too.
+- `ScanChecker` reads `PngQrRenderer.draw`'s pixels; there is no separate SVG or PDF check
+  because the geometry is shared. A renderer change that alters what is drawn changes the verdicts too.
 - The trials use the quick reader, no `TRY_HARDER`; that is what makes them discriminating.
   `TRY_HARDER` only separates `FAIL` from `MARGINAL` on the as-rendered image.
 - The verdict thresholds (3 and 4 pixels per module, two 3×3 box blurs) were calibrated against
@@ -146,6 +155,10 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   That container's JDK needs `microdnf install freetype` for fonts, and should have no
   `/etc/fonts` so the fallback path is traced. The agent misses arrays created only on paths a
   native image takes (Hikari's `ConcurrentBag$IConcurrentBagEntry[]`), so smoke-test the image too.
+- The PDF writer needs nothing beyond what the image already has: it uses `Deflater`, Java2D
+  shapes and `BufferedImage.getRGB`, no reflection or resources. It was verified in the native
+  image (plain, gradient, PNG and JPEG logos, background image, custom artwork, framed with
+  bleed, transparent, and a PDF batch).
 - Logs worth knowing: Flyway's "Unable to scan location: /db/migration (unsupported protocol:
   resource)" is harmless, as Spring Boot's resource provider applies the migrations. Hikari reports a
   failed first connection as a bare NPE in `throwPoolInitializationException`; set
@@ -162,6 +175,30 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   a printed code that stops working is not the same as an address that never existed.
 - Editing a link changes its destination and expiry but never its code. The code is what a
   printed QR image carries, so replacing it would defeat the point of editing.
+- A gone link's options decide what a scan of it gets: its `goneUrl` (302, not counted), else its
+  `goneMessage` on the 410 page, else `app.links.gone-url`, else the default 410 page. An unknown
+  code is always the 404 page. Keep 410 for a gone link that has nowhere to send the scan.
+- `goneMessage` is user input rendered into HTML: `RedirectController.page` escapes everything it
+  writes, and the page's CSP allows only its own stylesheet by hash. Changing `STYLE` changes the
+  hash, which is computed, so no manual update is needed; adding a script or image means
+  widening the CSP on purpose. `goneUrl` goes through the same `validUrl` as the destination.
+
+## Scan analytics
+
+- Never store an IP address, a full `User-Agent` or a full referrer URL. A scan keeps only the
+  device class and bot flag derived in `ScanSource`, and the referrer's host. Adding a field means
+  saying in `docs/api.md` what is stored.
+- Recording a scan must never break or slow the redirect: it runs after the hit-count transaction
+  commits, in its own, and `ShortLinkService.resolve` catches and logs any failure. Don't move it
+  into the hit-count transaction, where a failed insert would roll the count back and fail the
+  request at commit. Only `FOUND` resolutions record a scan.
+- Bots are recorded but do not move `hit_count` or `last_hit_at`; those mean people.
+- Group by the stored `scanned_on` UTC date, never by a database date function: H2 and PostgreSQL
+  differ, and the tests only run on H2. Check stats changes against a real PostgreSQL too.
+- Hibernate builds `DailyScanCount` and `ScanCount` from JPQL constructor expressions; a new
+  projection needs the same hint in `ApiModelRuntimeHints`.
+- `@Scheduled` methods are called on the proxy, but their calls to sibling methods are not: give
+  the scheduled method its own `@Transactional`; the cleanup threw "No active transaction" without it.
 
 ## Batch
 

@@ -213,6 +213,68 @@ class QrCodeControllerTest {
     }
 
     @Test
+    void rendersPdfWhenAsked() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/qr-codes?format=PDF&dpi=150")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"https://example.com","style":{"size":300}}"""))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(header().string("Content-Disposition", "inline; filename=\"qr-code.pdf\""))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andReturn();
+
+        byte[] body = result.getResponse().getContentAsByteArray();
+        assertThat(new String(body, 0, 8, StandardCharsets.US_ASCII)).isEqualTo("%PDF-1.4");
+        // 300 pixels at 150 DPI: two inches, 144 points.
+        assertThat(new String(body, StandardCharsets.ISO_8859_1)).contains("/MediaBox [0 0 144 144]");
+    }
+
+    @Test
+    void recordsTheDpiInAPng() throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/qr-codes?dpi=300")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"https://example.com","style":{"size":256}}"""))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("image/png"))
+                .andReturn();
+
+        byte[] body = result.getResponse().getContentAsByteArray();
+        assertThat(new String(body, 37, 4, StandardCharsets.US_ASCII)).isEqualTo("pHYs");
+    }
+
+    @Test
+    void rejectsADpiOutOfRange() throws Exception {
+        for (String dpi : new String[] {"71", "1201", "0", "-300"}) {
+            mockMvc.perform(post("/api/qr-codes?format=pdf&dpi=" + dpi)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"data":"hello"}"""))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                    .andExpect(jsonPath("$.detail").value(
+                            org.hamcrest.Matchers.containsString("dpi must be between 72 and 1200")));
+        }
+        mockMvc.perform(post("/api/qr-codes?format=pdf&dpi=lots")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"data":"hello"}"""))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void acceptsTheEndsOfTheDpiRange() throws Exception {
+        for (String dpi : new String[] {"72", "1200"}) {
+            mockMvc.perform(post("/api/qr-codes?format=pdf&dpi=" + dpi)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"data":"hello"}"""))
+                    .andExpect(status().isOk());
+        }
+    }
+
+    @Test
     void rejectsAnUnknownFormat() throws Exception {
         mockMvc.perform(post("/api/qr-codes?format=gif")
                         .contentType(MediaType.APPLICATION_JSON)

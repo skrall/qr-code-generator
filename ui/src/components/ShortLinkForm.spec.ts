@@ -67,6 +67,17 @@ async function type(container: HTMLElement, value: string): Promise<void> {
   await nextTick()
 }
 
+/** Sets a text field or textarea the way typing would. */
+async function fill(container: HTMLElement, selector: string, value: string): Promise<void> {
+  const field = container.querySelector(selector)
+  if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) {
+    throw new Error(`No ${selector} field`)
+  }
+  field.value = value
+  field.dispatchEvent(new Event('input', { bubbles: true }))
+  await nextTick()
+}
+
 /** Lets the async click handler finish: one macrotask covers its promise chain. */
 async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0))
@@ -220,6 +231,64 @@ describe('ShortLinkForm', () => {
     expect(container.querySelector('.short-link-result')).not.toBeNull()
 
     await type(container, 'https://example.com/other')
+
+    expect(container.querySelector('.short-link-result')).toBeNull()
+    expect(cleared).toBe(1)
+  })
+
+  test('sends the gone options, normalising the fallback like the destination', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response(stored, 201))
+    vi.stubGlobal('fetch', fetchMock)
+    const container = mount()
+
+    const details = container.querySelector('details.gone-options')
+    expect(details?.querySelector('summary')?.textContent).toContain('expires or is removed')
+    expect(details?.hasAttribute('open')).toBe(false)
+    expect(details?.textContent).toContain('expired and deleted links')
+
+    await type(container, 'https://example.com/page')
+    await fill(container, '#shortlink-gone-url', 'example.com/next')
+    await fill(container, '#shortlink-gone-message', '  The sale is over.  ')
+    button(container, 'Create link').click()
+    await flush()
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(JSON.parse(String(init.body))).toEqual({
+      url: 'https://example.com/page',
+      goneUrl: 'https://example.com/next',
+      goneMessage: 'The sale is over.',
+    })
+  })
+
+  test('limits the message to 280 characters and counts down', async () => {
+    const container = mount()
+
+    const message = container.querySelector('#shortlink-gone-message')
+    expect(message?.getAttribute('maxlength')).toBe('280')
+    expect(container.querySelector('.gone-options')?.textContent).toContain('280 characters left')
+
+    await fill(container, '#shortlink-gone-message', 'a'.repeat(279))
+
+    expect(container.querySelector('.gone-options')?.textContent).toContain('1 character left')
+  })
+
+  test('says the message is not shown while there is a fallback', async () => {
+    const container = mount()
+
+    await fill(container, '#shortlink-gone-url', 'https://example.com/next')
+
+    expect(container.querySelector('.gone-options')?.textContent).toContain('Not shown')
+  })
+
+  test('drops the shown link when a gone option changes', async () => {
+    let cleared = 0
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(stored, 201)))
+    const container = mount({ cleared: () => (cleared += 1) })
+
+    await type(container, 'https://example.com/page')
+    button(container, 'Create link').click()
+    await flush()
+    await fill(container, '#shortlink-gone-message', 'Bye')
 
     expect(container.querySelector('.short-link-result')).toBeNull()
     expect(cleared).toBe(1)

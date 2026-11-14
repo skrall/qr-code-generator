@@ -14,9 +14,9 @@ import org.springframework.stereotype.Component;
  * Renders a QR matrix to an SVG document.
  *
  * <p>SVG is offered because it stays sharp at any size and because a logo can be embedded as the
- * original data URL rather than being resampled. The geometry mirrors
- * {@link PngQrRenderer} exactly; the two are kept side by side so a change to one is hard to make
- * without noticing the other.
+ * original data URL rather than being resampled. The geometry mirrors {@link QrPainter}, which
+ * draws the PNG and the PDF, exactly; the two are kept side by side so a change to one is hard to
+ * make without noticing the other.
  */
 @Component
 public class SvgQrRenderer {
@@ -107,7 +107,7 @@ public class SvgQrRenderer {
      * The card, its border and its text, drawn before the code.
      *
      * <p>The border and the text are the shapes {@link Frame} built, written out as path data, so
-     * they match what {@link PngQrRenderer} fills. A transparent background leaves the card and
+     * they match what {@link QrPainter} fills. A transparent background leaves the card and
      * bleed unpainted.
      */
     private static void appendFrame(StringBuilder svg, Frame frame, boolean transparent) {
@@ -150,7 +150,7 @@ public class SvgQrRenderer {
      * The gradient element, in user space so it spans the canvas rather than each module.
      *
      * <p>The line or circle comes from {@link Gradient}, the same geometry
-     * {@link PngQrRenderer} builds its {@link java.awt.Paint} from.
+     * {@link Java2dCanvas} builds its {@link java.awt.Paint} from.
      */
     private static void appendGradient(StringBuilder svg, Gradient gradient, int size) {
         svg.append("  <defs>\n");
@@ -285,7 +285,7 @@ public class SvgQrRenderer {
         svg.append("/>\n");
     }
 
-    /** Mirrors {@link PngQrRenderer}'s star: wide waist, tips at the middle of each cell edge. */
+    /** Mirrors {@link QrPainter}'s star: wide waist, tips at the middle of each cell edge. */
     private static String starPath(double x, double y, double scale) {
         double centreX = x + scale / 2;
         double centreY = y + scale / 2;
@@ -306,7 +306,7 @@ public class SvgQrRenderer {
      * One corner pattern: the outer shape, the one-module gap, then the centre.
      *
      * <p>The gap is painted in the background colour. With a transparent background it is cut out
-     * of the outer shape with a mask instead, as {@link PngQrRenderer} clears it, so the gap shows
+     * of the outer shape with a mask instead, as the PNG clears it, so the gap shows
      * whatever the code sits on.
      *
      * @param index which eye, to give its mask a unique id
@@ -406,7 +406,7 @@ public class SvgQrRenderer {
     /**
      * The standard square eye with the artwork filling its two dark regions.
      *
-     * <p>Mirrors {@link PngQrRenderer}: the outer square and the centre are filled with the
+     * <p>Mirrors {@link QrPainter}: the outer square and the centre are filled with the
      * artwork, then the one-module gap is painted back in the background colour, or masked out of
      * the outer artwork when the background is transparent. The ring and
      * centre are always present, so the 1:1:3:1:1 structure survives whatever the image contains.
@@ -448,7 +448,7 @@ public class SvgQrRenderer {
                 .append(attribute(artwork.dataUrl())).append("\"/>\n");
     }
 
-    /** Mirrors {@link PngQrRenderer}'s leaf: rounded top-left and bottom-right corners. */
+    /** Mirrors {@link QrPainter}'s leaf: rounded top-left and bottom-right corners. */
     private static String leafPath(double x, double y, double side, double radius) {
         double r = Math.min(radius, side / 2);
         return "M " + num(x + r) + " " + num(y)
@@ -461,7 +461,7 @@ public class SvgQrRenderer {
                 + " Z";
     }
 
-    /** Mirrors {@link PngQrRenderer}'s diamond: one bounding box, inset rings stay concentric. */
+    /** Mirrors {@link QrPainter}'s diamond: one bounding box, inset rings stay concentric. */
     private static String diamondPath(double x, double y, double side, double inset) {
         double centreX = x + side / 2;
         double centreY = y + side / 2;

@@ -13,13 +13,14 @@ by the same process.
 - **Gradients** — linear or radial, across the modules and optionally the corner patterns.
   Colours that would fade into the background are rejected rather than rendered.
 - **Frames** — put the code on a card with a title, a caption, a border and print bleed. Text is
-  set in a bundled font, so a PNG and an SVG of the same card match.
+  set in a bundled font, so a PNG, an SVG and a PDF of the same card match. The PDF has trim and
+  bleed boxes and crop marks for the printer.
 - **Background images** — drop in a PNG, JPEG or GIF behind the code. It is washed toward the
   background colour so the modules keep their contrast.
 - **Inverted codes** — one click turns dark-on-light into light-on-dark, corner colour and
   gradient included, and a second click turns it back. The scan check flags that some scanner
   apps cannot read them.
-- **Transparent backgrounds** — leave the background unpainted, in PNG and SVG, so the code sits
+- **Transparent backgrounds** — leave the background unpainted, in PNG, SVG and PDF, so the code sits
   on your own artwork. The corner gaps are transparent too; the scan check reads the code on the
   background colour it was designed for.
 - **Every common payload** — text, URL, app store link, email, phone, SMS, WiFi (including hidden
@@ -28,17 +29,23 @@ by the same process.
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
   everyone who signs in, and export or import it as a JSON file.
 - **Batch generation** — upload a CSV of payloads, render every row with the current style or a
-  saved design, and download the PNGs or SVGs as a ZIP, with a report of any rows skipped.
+  saved design, and download the PNGs, SVGs or PDFs as a ZIP, with a report of any rows skipped.
 - **Undo, redo and share links** — undo any edit to the style or content (Ctrl/Cmd+Z), and copy
   a link that reopens the design, optionally with its content. The design travels in the link's
   `#` fragment, never sent to the server; secrets such as a WiFi password are always left out, and
   a design with images is shared as a link to the saved design instead.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional
-  expiry, a searchable list and hit counts.
+  expiry, a searchable list and hit counts. An expired or removed code can send scans to a
+  fallback URL or show a friendly page with your own message.
+- **Scan analytics** — scans per day, people versus bots and link previews, devices and top
+  referrers for each short link, over 7, 30 or 90 days. No IP addresses or user agents are stored,
+  and scans are pruned after a configurable retention (365 days by default).
 - **Sign-in** — HTTP Basic by default, or an identity provider (Okta, Entra ID), or a trusted
   reverse proxy, with an operator role for changing short links. The redirects stay public.
-- **PNG and SVG** — PNG for anything that needs a bitmap, SVG for print and for embedding the
-  original logo without resampling.
+- **PNG, SVG and PDF** — PNG for anything that needs a bitmap, SVG for the web and for embedding
+  the original logo without resampling, and a vector PDF for print, its page sized from a print
+  resolution (300 DPI by default: a 600-pixel code prints at 50.8 mm). The same DPI is recorded in
+  a downloaded PNG, so layout software places it at that size.
 - **Copy as embed snippet** — copy the code as an HTML `<img>` with a PNG data URL, inline SVG
   (ids prefixed so several codes can share a page), a bare data URL, or, for a web address, an
   `<img>` wrapped in a link. Alt text describes the payload without secrets such as a WiFi password.

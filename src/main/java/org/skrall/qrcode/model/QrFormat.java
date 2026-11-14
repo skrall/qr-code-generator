@@ -1,11 +1,12 @@
 package org.skrall.qrcode.model;
 
 /**
- * The two output formats.
+ * The output formats.
  */
 public enum QrFormat {
     PNG("image/png", "png"),
-    SVG("image/svg+xml", "svg");
+    SVG("image/svg+xml", "svg"),
+    PDF("application/pdf", "pdf");
 
     private final String mediaType;
     private final String extension;
@@ -41,6 +42,6 @@ public enum QrFormat {
                 }
             }
         }
-        throw new IllegalArgumentException("format must be one of png or svg");
+        throw new IllegalArgumentException("format must be one of png, svg or pdf");
     }
 }

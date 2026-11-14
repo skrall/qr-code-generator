@@ -4,10 +4,13 @@ import { deleteLink, listLinks, updateLink, type ShortLink } from '../api/client
 import { copyText } from '../clipboard'
 import { formatDate, toDateTimeInput } from '../format'
 import { normalizeUrl } from '../qr/types'
+import GoneOptionsFields from './GoneOptionsFields.vue'
+import LinkStatsDialog from './LinkStatsDialog.vue'
 
 /**
- * The stored links, with a debounced search, an edit dialog and a two-step delete. A VIEWER sees
- * the list without the edit and delete actions, which the server would refuse.
+ * The stored links, with a debounced search, scan statistics, an edit dialog and a two-step
+ * delete. A VIEWER sees the list and the statistics without the edit and delete actions, which
+ * the server would refuse.
  */
 withDefaults(defineProps<{ operator?: boolean }>(), { operator: true })
 
@@ -23,9 +26,12 @@ const pendingDelete = ref<string | null>(null)
 const deleting = ref<string | null>(null)
 const copiedCode = ref<string | null>(null)
 
+const statsFor = ref<ShortLink | null>(null)
 const editing = ref<ShortLink | null>(null)
 const editTarget = ref('')
 const editExpiry = ref('')
+const editGoneUrl = ref('')
+const editGoneMessage = ref('')
 const editError = ref('')
 const saving = ref(false)
 
@@ -115,6 +121,8 @@ function startEdit(link: ShortLink): void {
   editing.value = link
   editTarget.value = link.targetUrl
   editExpiry.value = toDateTimeInput(link.expiresAt)
+  editGoneUrl.value = link.goneUrl ?? ''
+  editGoneMessage.value = link.goneMessage ?? ''
   editError.value = ''
 }
 
@@ -138,6 +146,8 @@ async function saveEdit(): Promise<void> {
     await updateLink(link.code, {
       url: normalizeUrl(editTarget.value),
       expiresAt: editExpiry.value ? new Date(editExpiry.value).toISOString() : null,
+      goneUrl: normalizeUrl(editGoneUrl.value),
+      goneMessage: editGoneMessage.value,
     })
     editing.value = null
     await load()
@@ -161,7 +171,8 @@ onUnmounted(() => {
       <div>
         <h2>Short links</h2>
         <p class="hint">
-          Destinations stored by the generator. A deleted code answers 410 Gone, not 404.
+          Destinations stored by the generator. An expired or deleted code answers 410 Gone, not
+          404, or redirects to the link's fallback if it has one.
         </p>
       </div>
       <label class="search-field" for="links-search">
@@ -193,7 +204,7 @@ onUnmounted(() => {
             <th>Expires</th>
             <th class="numeric">Hits</th>
             <th>Last hit</th>
-            <th v-if="operator"><span class="visually-hidden">Actions</span></th>
+            <th><span class="visually-hidden">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -211,16 +222,25 @@ onUnmounted(() => {
             <td>{{ link.expiresAt ? formatDate(link.expiresAt) : 'Never' }}</td>
             <td class="numeric">{{ link.hitCount }}</td>
             <td>{{ formatDate(link.lastHitAt) }}</td>
-            <td v-if="operator" class="cell-actions">
-              <button type="button" @click="startEdit(link)">Edit</button>
+            <td class="cell-actions">
               <button
                 type="button"
-                class="danger"
-                :disabled="deleting === link.code"
-                @click="remove(link.code)"
+                :aria-label="`Stats for ${link.code}`"
+                @click="statsFor = link"
               >
-                {{ pendingDelete === link.code ? 'Confirm' : 'Delete' }}
+                Stats
               </button>
+              <template v-if="operator">
+                <button type="button" @click="startEdit(link)">Edit</button>
+                <button
+                  type="button"
+                  class="danger"
+                  :disabled="deleting === link.code"
+                  @click="remove(link.code)"
+                >
+                  {{ pendingDelete === link.code ? 'Confirm' : 'Delete' }}
+                </button>
+              </template>
             </td>
           </tr>
         </tbody>
@@ -232,6 +252,8 @@ onUnmounted(() => {
       <span>Page {{ page + 1 }} of {{ pageCount }} · {{ total }} {{ total === 1 ? 'link' : 'links' }}</span>
       <button type="button" :disabled="page + 1 >= pageCount" @click="go(1)">Next</button>
     </div>
+
+    <LinkStatsDialog v-if="statsFor" :link="statsFor" @close="statsFor = null" />
 
     <div v-if="editing" class="edit-overlay" @click.self="cancelEdit">
       <form
@@ -271,6 +293,12 @@ onUnmounted(() => {
           </span>
           <span v-else class="field-help">Leave empty for a link that never expires.</span>
         </div>
+
+        <GoneOptionsFields
+          v-model:gone-url="editGoneUrl"
+          v-model:gone-message="editGoneMessage"
+          id-prefix="edit-link"
+        />
 
         <p v-if="editError" class="error" role="alert">{{ editError }}</p>
 

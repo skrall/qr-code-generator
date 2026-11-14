@@ -23,8 +23,49 @@ curl -X POST 'http://localhost:8080/api/qr-codes?format=png' \
   }' --output qr.png
 ```
 
-`format` is `png` (the default) or `svg`, in either case. The response is the image with
-`Content-Type: image/png` or `image/svg+xml`.
+`format` is `png` (the default), `svg` or `pdf`, in any case. The response is the image with
+`Content-Type: image/png`, `image/svg+xml` or `application/pdf`.
+
+`dpi` is the print resolution, 72 to 1200 pixels per inch; anything else is a 400. It is a query
+parameter like `format` rather than a style field, because it describes the output, not the
+design: the same saved design prints at any resolution, and the pixels never change.
+
+| Format | Without `dpi`                         | With `dpi`                                         |
+| ------ | ------------------------------------- | -------------------------------------------------- |
+| `png`  | no resolution recorded                | a `pHYs` chunk, so print and layout software sizes it |
+| `pdf`  | the page is sized at 300 DPI          | the page is sized at `dpi`                         |
+| `svg`  | ignored                               | ignored                                            |
+
+So `size` 600 at 300 DPI is 2 inches (50.8 mm) square. A frame makes the image, and the page,
+larger than `size`.
+
+## PDF
+
+```bash
+curl -X POST 'http://localhost:8080/api/qr-codes?format=pdf&dpi=300' \
+  --user operator:change-me-on-deploy \
+  -H 'Content-Type: application/json' \
+  -d '{"data": "https://example.com", "style": {"size": 600}}' --output qr.pdf
+```
+
+A one-page vector PDF with the same geometry as the PNG and the SVG: modules, eyes, gradients
+(as shading patterns), the frame's card, border and text are paths. Frame text is filled as glyph
+outlines, so no font is embedded; the document's title and subject carry the title and caption.
+A logo, finder artwork and background image are embedded as images at their own resolution,
+with a soft mask where they have transparency. A transparent background is left unpainted, eye
+gaps included, so the page shows whatever it is placed on.
+
+Page boxes, in points (1/72 inch):
+
+- **No bleed**: the MediaBox and TrimBox are the image, and there are no crop marks.
+- **A frame with `bleedPercent`**: the BleedBox is the whole image, the TrimBox is the image less
+  the bleed on every side, and the MediaBox adds a 27 pt slug around the bleed for crop marks.
+  Each corner has two 0.25 pt marks on the trim lines, extended outwards, starting 3 pt outside
+  the bleed and 18 pt long, so no mark reaches into the bleed or the trimmed page. They are in the
+  registration colour (`/Separation /All`), which prints on every plate.
+
+For a 50 mm trimmed code with 3 mm bleed, set `bleedPercent` 6 and choose `size` and `dpi` so the
+code is 50 mm, for example `size` 591 at 300 DPI.
 
 ## Style
 
@@ -51,7 +92,8 @@ black-on-white code.
 
 Set `transparentBackground` to `true` to paint only the code: the quiet zone, the light modules and
 the gap inside each corner pattern are left transparent, so the code can be placed on existing
-artwork. A PNG has alpha 0 there; an SVG has no background rect and masks the corner gaps out.
+artwork. A PNG has alpha 0 there; an SVG has no background rect and masks the corner gaps out; a PDF
+never paints there and fills each eye as a ring.
 
 ```json
 {
@@ -266,7 +308,7 @@ larger rather than the code smaller.
 | `radiusPercent`      | 0–25, the border's corner radius              | 4                  |
 | `paddingPercent`     | 0–30, between the border and the code         | 6                  |
 | `marginPercent`      | 0–20, between the trim line and the border    | 0                  |
-| `bleedPercent`       | 0–20, card colour beyond the trim line        | 0                  |
+| `bleedPercent`       | 0–20, card colour beyond the trim line; in a PDF, the TrimBox and crop marks | 0 |
 
 Every length is a percentage of the code's side, so a card keeps its proportions at any `size`.
 From the outside in: bleed, margin, border, padding, then the code, following CSS's box model with
@@ -276,8 +318,8 @@ cut does not thin one side of it.
 
 Text wraps to the code's width and is centred on it; a newline starts a new line. It is set in
 Inter (Bold for the title, Regular for the caption), which ships with the application under the
-SIL Open Font License. Both formats draw the same glyph outlines, so the SVG has no `<text>` and
-depends on no installed font. Its `<title>` and `<desc>` carry the text for screen readers.
+SIL Open Font License. All three formats draw the same glyph outlines, so the SVG has no `<text>`,
+the PDF embeds no font, and neither depends on an installed one. Its `<title>` and `<desc>` carry the text for screen readers.
 
 A frame is rejected with a 400 when:
 
@@ -368,7 +410,9 @@ curl -X POST http://localhost:8080/api/links \
   "createdAt": "2026-11-11T20:00:00Z",
   "expiresAt": "2026-12-01T00:00:00Z",
   "hitCount": 0,
-  "lastHitAt": null
+  "lastHitAt": null,
+  "goneUrl": null,
+  "goneMessage": null
 }
 ```
 
@@ -381,13 +425,89 @@ that has already been printed can be repointed at a new destination. An expired 
 revived by giving it a future expiry or by clearing it. `DELETE /api/links/{code}` soft deletes
 one, after which its code answers `410 Gone` rather than `404`.
 
+`goneUrl` and `goneMessage` (both optional, on create and edit) say what a scan gets once the link
+has expired or been deleted:
+
+- `goneUrl` — redirect there instead of showing a page. Checked exactly like `url`: absolute
+  `http`/`https` only, at most 2048 characters, no credentials, non-ASCII percent-encoded.
+- `goneMessage` — plain text, at most 280 characters, shown on the page instead of the default
+  wording. Line breaks are kept; other control characters are rejected. Markup is not
+  interpreted: the text is HTML-escaped when shown.
+
+Blank values mean "none". An edit replaces both, like the expiry: leaving one out clears it. Only
+an OPERATOR may set them, as with every other change to a link.
+
 `GET /r/{code}` is the public redirect. It answers `302 Found` with `Cache-Control: no-store`, so
-every scan reaches the server and the hit count stays honest. An unknown code is `404`; an expired
-or deleted one is `410`.
+every scan reaches the server and the hit count stays honest. Otherwise:
+
+| Code | Answer |
+|---|---|
+| Live | `302` to the destination, counted as a hit |
+| Expired or deleted, with a `goneUrl` | `302` to the `goneUrl`, not counted |
+| Expired or deleted, with a `goneMessage` | `410` page showing the message |
+| Expired or deleted, neither set, `app.links.gone-url` set | `302` to that URL, not counted |
+| Expired or deleted, otherwise | `410` page with the default wording |
+| Unknown | `404` page |
+
+`app.links.gone-url` (`APP_LINKS_GONE_URL`) is an optional site-wide fallback, validated like a
+destination at startup. It never applies to an unknown code. The `404` and `410` pages are small
+self-contained HTML (inline CSS, light and dark, sized for a phone) that never show the old
+destination. Both carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
+`X-Robots-Tag: noindex`, `X-Content-Type-Options: nosniff` and a
+`Content-Security-Policy` of `default-src 'none'` that allows only the page's own stylesheet by
+hash: no scripts, images, frames or forms. A fallback redirect has the same headers as a live one.
 
 The short URL is composed from `app.public-base-url`, which defaults to `http://localhost:8080`.
 Set `APP_PUBLIC_BASE_URL` to the address a scanner can reach — a LAN address, or the public name
 behind a reverse proxy — before generating codes.
+
+### Scan analytics
+
+Each redirect to a live link's destination records one scan. A `404`, a `410` and the redirect
+of an expired or deleted link to its fallback URL record nothing.
+`GET /api/links/{code}/stats?days=30` reports on the scans; VIEWER and OPERATOR may both read
+it, as with the list.
+
+```bash
+curl -u operator:change-me-on-deploy 'http://localhost:8080/api/links/aB3dE5fG7/stats?days=7'
+```
+
+```json
+{
+  "code": "aB3dE5fG7", "deleted": false, "days": 7,
+  "from": "2026-11-08", "to": "2026-11-14", "timeZone": "UTC", "retentionDays": 365,
+  "allTime": 41, "scans": 12, "bots": 3,
+  "daily": [{"date": "2026-11-08", "scans": 0, "bots": 0}, …, {"date": "2026-11-14", "scans": 5, "bots": 1}],
+  "devices": [{"device": "IOS", "scans": 7}, {"device": "ANDROID", "scans": 5}],
+  "referrers": [{"host": null, "scans": 10}, {"host": "l.instagram.com", "scans": 2}]
+}
+```
+
+- **Period and time zone.** `days` is 1 to 365 (default 30) and covers that many UTC calendar
+  days, today included. `daily` has one entry per day, oldest first, with zeros for days without
+  scans. Days are UTC whatever the server's or the viewer's zone.
+- **People and bots.** Crawlers, chat link previews (Slackbot, facebookexternalhit, Twitterbot,
+  WhatsApp, Googlebot and the like) and scripted clients (curl, python-requests…) are redirected
+  as usual but flagged as bots. They are counted in `bots` and left out of `scans`, `devices` and
+  `referrers`. A request without a `User-Agent` counts as a person.
+- **Hit count.** `hitCount` on a link, and `allTime` here, counts people only: a bot does not
+  move it or `lastHitAt`. It is never pruned, so it can exceed what the retained scans add up to.
+- **Devices.** `IOS`, `ANDROID`, `WINDOWS`, `MACOS`, `LINUX` or `OTHER`, from simple substring
+  rules on the `User-Agent`. An iPad asking for desktop sites reports itself as a Mac and is
+  counted as macOS; ChromeOS is `OTHER`.
+- **Referrers.** The ten most frequent hosts; `null` counts scans with no referrer, which is
+  usual for a camera app.
+- **Deleted links.** A deleted link still answers, with `deleted: true`, so its history stays
+  readable. An unknown code is `404`.
+
+**What is stored.** Per scan: the link, the time and its UTC day, the device class, the bot flag
+and the referrer's host. **No IP address and no `User-Agent` is stored**, and the referrer is
+reduced to its host, because a full referrer URL can carry tokens in its query.
+
+**Retention.** A daily job (03:17 UTC) deletes scans from before the last
+`app.links.scan-retention-days` days (env `APP_LINKS_SCAN_RETENTION_DAYS`, default 365); `0`
+keeps them forever. Recording a scan never holds up or breaks the redirect: it is written after the
+hit count commits, in its own transaction, and a failure is logged and ignored.
 
 
 ## Saved designs
@@ -438,7 +558,7 @@ can send the chosen file as it is:
 | Part | Content type | Holds |
 | --- | --- | --- |
 | `csv` | any (`text/csv`) | The CSV, UTF-8, at most 1 MB |
-| `options` | `application/json` | Optional: `{"format", "style"}` or `{"format", "designId"}` |
+| `options` | `application/json` | Optional: `{"format", "dpi", "style"}` or `{"format", "dpi", "designId"}` |
 
 ```bash
 curl -X POST http://localhost:8080/api/qr-codes/batch \
@@ -448,8 +568,10 @@ curl -X POST http://localhost:8080/api/qr-codes/batch \
   --output qr-codes.zip
 ```
 
-- **`format`** is `png` (the default), `svg` or `both`, in any case. `both` writes a PNG and an
-  SVG per row.
+- **`format`** is `png` (the default), `svg`, `pdf` or `both`, in any case. `both` writes a PNG
+  and an SVG per row.
+- **`dpi`** is the print resolution, as the render endpoint's `dpi` parameter: optional, 72 to
+  1200.
 - **`style`** is the same document the render API takes; absent, the code is plain
   black-on-white. **`designId`** takes the style from a saved design instead. A design you
   cannot see answers 404, just as `GET /api/designs/{id}` does; sending both is a 400.

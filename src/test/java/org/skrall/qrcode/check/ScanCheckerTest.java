@@ -19,6 +19,7 @@ import org.skrall.qrcode.model.QrStyle;
 import org.skrall.qrcode.model.ScanCheckResponse;
 import org.skrall.qrcode.model.ScanTrial;
 import org.skrall.qrcode.model.ScanVerdict;
+import org.skrall.qrcode.render.PdfQrRenderer;
 import org.skrall.qrcode.render.PngQrRenderer;
 import org.skrall.qrcode.render.SvgQrRenderer;
 import org.skrall.qrcode.service.QrCodeService;
@@ -33,7 +34,7 @@ class ScanCheckerTest {
     private static final String URL = "https://example.com/some/page?campaign=autumn";
 
     private final QrCodeService service =
-            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new ScanChecker());
+            new QrCodeService(new PngQrRenderer(), new SvgQrRenderer(), new PdfQrRenderer(), new ScanChecker());
 
     @Test
     void aPlainCodePassesEveryTrialWithoutHints() {

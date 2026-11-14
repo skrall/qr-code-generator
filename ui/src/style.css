@@ -630,6 +630,28 @@ input[type='color'] {
   flex: 1;
 }
 
+.print-size {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.print-size-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.print-size-field input {
+  width: 6em;
+}
+
+.print-size .hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 .embed-menu {
   display: flex;
   flex-direction: column;
@@ -917,6 +939,29 @@ input[type='color'] {
 
 /* Short link form --------------------------------------------------------- */
 
+/* A details element does not lay out as flex in every browser, so its children are spaced with
+   margins instead of a gap. */
+.gone-options {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.gone-options summary {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gone-options > * + * {
+  margin-top: 12px;
+}
+
+.gone-options[open] {
+  padding-bottom: 14px;
+}
+
 .short-link-form {
   display: flex;
   flex-direction: column;
@@ -1130,6 +1175,148 @@ input[type='color'] {
   font-family: var(--mono);
   font-size: 12.5px;
   overflow-wrap: anywhere;
+}
+
+/* Scan statistics dialog -------------------------------------------------- */
+
+.stats-dialog {
+  width: min(680px, 100%);
+}
+
+.stats-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stats-target {
+  overflow-wrap: anywhere;
+  color: var(--text-muted);
+}
+
+.stats-periods {
+  align-self: flex-start;
+}
+
+.stats-totals {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.stats-total {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.stats-number {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-chart {
+  margin: 0;
+}
+
+.stats-chart svg {
+  display: block;
+  width: 100%;
+  height: 120px;
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.stats-bar-people {
+  fill: var(--accent);
+}
+
+.stats-bar-bots {
+  fill: var(--border-strong);
+}
+
+.stats-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.stats-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stats-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 6px;
+  border-radius: 2px;
+}
+
+.stats-swatch-people {
+  background: var(--accent);
+}
+
+.stats-swatch-bots {
+  background: var(--border-strong);
+}
+
+.stats-table-toggle summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.stats-table {
+  min-width: 0;
+}
+
+.stats-table th[scope="row"] {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.stats-breakdowns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.stats-breakdowns h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.stats-meter-cell {
+  width: 40%;
+}
+
+.stats-meter {
+  display: block;
+  height: 6px;
+  min-width: 2px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+@media (max-width: 560px) {
+  .stats-totals,
+  .stats-breakdowns {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Responsive -------------------------------------------------------------- */

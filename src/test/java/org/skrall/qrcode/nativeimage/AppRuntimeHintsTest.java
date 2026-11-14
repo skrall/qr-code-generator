@@ -199,4 +199,17 @@ class AppRuntimeHintsTest {
                 org.skrall.qrcode.web.ValidationProblemDetailAdvice.FieldProblem.class.getMethod("field")))
                 .accepts(hints);
     }
+
+    @Test
+    void theScanStatisticsRowsCanBeConstructedByHibernate() throws Exception {
+        RuntimeHints hints = all(classLoader);
+
+        assertThat(RuntimeHintsPredicates.reflection().onConstructorInvocation(
+                org.skrall.qrcode.link.DailyScanCount.class.getConstructor(
+                        java.time.LocalDate.class, boolean.class, long.class)))
+                .accepts(hints);
+        assertThat(RuntimeHintsPredicates.reflection().onConstructorInvocation(
+                org.skrall.qrcode.link.ScanCount.class.getConstructor(String.class, long.class)))
+                .accepts(hints);
+    }
 }

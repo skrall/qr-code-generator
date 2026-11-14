@@ -26,7 +26,8 @@ const props = defineProps<{ qrStyle: QrStyle }>()
 const formats: { value: BatchFormat; label: string }[] = [
   { value: 'png', label: 'PNG' },
   { value: 'svg', label: 'SVG' },
-  { value: 'both', label: 'Both' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'both', label: 'PNG + SVG' },
 ]
 
 const file = ref<File | null>(null)
