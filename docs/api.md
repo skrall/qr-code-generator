@@ -137,8 +137,10 @@ fallback for transparent pixels.
 ```
 
 The same PNG, JPEG and GIF limits as a logo apply. Artwork is adjusted so its luminance stays at
-least 96/255 away from the background colour, which keeps the rings readable even when the image
-is mostly light. `CUSTOM` without artwork falls back to a square eye.
+least 96/255 away from the background colour, on the same side as the modules: darkened when the
+modules are darker than the background, lightened when they are lighter (an inverted code). That
+keeps the rings readable even when the image is mostly light. `CUSTOM` without artwork falls back
+to a square eye.
 
 ## Background image
 
@@ -164,6 +166,11 @@ bright one keeps most of its colour. A light finder colour or light artwork rais
 less of the image shows. Transparent pixels become the background colour. The SVG renderer embeds
 the washed PNG, so both formats show the same pixels. A background image cannot be combined with
 `transparentBackground`; the request is rejected with a 400.
+
+On an [inverted code](#inverted-codes) the image is darkened instead, and further: it may reach
+only 15% of the way from the background toward the darkest ink. Readers binarize before they
+invert and treat a flat area as paper, so a washed image only 96/255 below light modules reads as
+module colour once inverted and fills the quiet zone.
 
 ## Gradient
 
@@ -206,6 +213,25 @@ into, so the request is rejected with a 400 when:
 
 Checking the two stops is enough. Both formats blend them linearly in sRGB, and luminance is a
 linear function of the sRGB channels, so every colour along the gradient lies between the stops.
+
+## Inverted codes
+
+Light modules on a dark background are an ordinary style: set `foreground` lighter than
+`background`. Nothing else changes. A gradient's stops must then both be lighter than the
+background, finder artwork is lightened rather than darkened, and a background image is washed
+toward the dark background.
+
+The scan check reads inverted codes (it asks ZXing for `ALSO_INVERTED`) but caps them at
+`MARGINAL` with a hint, because many scanner apps only look for dark modules on a light
+background. Phone camera apps generally read them.
+
+The UI's **Invert colours** action builds one from the current style, and undoes it on a second
+click. It swaps `foreground` and `background`, and reflects the corner colour and gradient stops
+in brightness across the midpoint of the two, keeping their hue: each keeps its distance from the
+background, so a style that rendered before still renders. A corner colour equal to the
+foreground follows it, and one that would end up too close to the new background becomes the new
+foreground. A gradient that cannot be reflected validly is turned off, with a notice. The logo
+plate, the frame and any images are left alone.
 
 ## Frame
 
