@@ -455,6 +455,9 @@ curl -X POST http://localhost:8080/api/qr-codes/batch \
   cannot see answers 404, just as `GET /api/designs/{id}` does; sending both is a 400.
 - The `options` part must be sent as `application/json` (curl's `;type=application/json`);
   without it the server answers 415.
+- A style with images carries data URLs, and `data:image/png;base64,…` contains a `;`, which
+  curl's `-F name=value` reads as a parameter separator, cutting the JSON short (a 400, "Failed
+  to read request"). Put such options in a file and send `-F 'options=@options.json;type=application/json'`.
 
 ### The CSV
 
