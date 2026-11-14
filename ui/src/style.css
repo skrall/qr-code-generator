@@ -723,6 +723,93 @@ input[type='color'] {
   align-self: flex-start;
 }
 
+/* Payload size ------------------------------------------------------------ */
+
+.payload-size {
+  --tone: var(--text-muted);
+  --fill: var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  /* Every state renders the same rows, so typing never moves the form below. */
+  min-height: 6.4em;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.payload-size-dense {
+  --tone: var(--warning);
+  --fill: var(--warning);
+}
+
+.payload-size-too-long {
+  --tone: var(--danger);
+  --fill: var(--danger);
+}
+
+.payload-size-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.payload-size-headline {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.payload-size-dense .payload-size-headline,
+.payload-size-too-long .payload-size-headline {
+  color: var(--tone);
+}
+
+.payload-size-idle .payload-size-headline {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.payload-size-usage {
+  margin-left: auto;
+}
+
+.payload-size-meter {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-sunken);
+}
+
+.payload-size-meter span {
+  display: block;
+  height: 100%;
+  background: var(--fill);
+  transition: width 120ms ease;
+}
+
+.payload-size-detail,
+.payload-size-levels {
+  margin: 0;
+}
+
+.payload-size-too-long .payload-size-detail {
+  color: var(--tone);
+}
+
+.payload-size-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.payload-size-levels .current {
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* Scan check -------------------------------------------------------------- */
 
 .scan-status {

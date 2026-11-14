@@ -44,6 +44,10 @@ by the same process.
   `<img>` wrapped in a link. Alt text describes the payload without secrets such as a WiFi password.
 - **Scan check** — the preview renders the code again and reads it back, as drawn, shrunk and
   blurred, and says whether phones should read it, with hints when they might not.
+- **Size as you type** — under the content form, the version and grid the payload needs at the
+  chosen error correction (the same version the scan check then reports), how full it is, the
+  version at each other level, a warning from version 10 where modules get small, and a clear
+  "too long" before the server would reject it. Worked out in the browser, matching ZXing exactly.
 - **Scannable** — the tests decode the rendered output with ZXing, including a rounded code with
   a logo and a dotted code with circular corner patterns.
 

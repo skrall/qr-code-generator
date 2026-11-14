@@ -75,6 +75,17 @@ Keep them terse. One-line subject, and a body only when it earns its place.
 - The UI runs the check after the render succeeds, not beside it, so a rejected style is
   reported once and the image is never held up by the check.
 
+## Payload size
+
+- `ui/src/qr/capacity.ts` must match ZXing's encoder exactly; it is not the standard's capacity
+  table (ZXing adds a UTF-8 ECI header in byte mode). After upgrading ZXing or changing the
+  encoder hints, regenerate the fixture and commit it:
+  `./mvnw test -Dskip.ui=true -Dtest=CapacityParityTest -Dcapacity.fixture.write=true`.
+  `CapacityParityTest` fails while the committed fixture is stale.
+- The fixture has lone surrogates, which Vite's JSON loader rejects; the spec imports it `?raw`.
+- The density warning starts at `DENSE_VERSION` (10), the version `ScanChecker` hints from. Change
+  both together.
+
 ## Security
 
 - Modelled on mailoverlord (`~/Work/java/mailoverlord`, `config/SecurityConfig.java`). Keep the
