@@ -19,8 +19,9 @@ by the same process.
 - **Transparent backgrounds** — leave the background unpainted, in PNG and SVG, so the code sits
   on your own artwork. The corner gaps are transparent too; the scan check reads the code on the
   background colour it was designed for.
-- **Every common payload** — text, URL, email, phone, SMS, WiFi, vCard, iCalendar event, geo and
-  bitcoin.
+- **Every common payload** — text, URL, app store link, email, phone, SMS, WiFi (including hidden
+  and WPA3-only networks), vCard, MeCard, iCalendar event, geo, bitcoin and SEPA credit transfer
+  (EPC QR code, with IBAN checking).
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
   everyone who signs in, and export or import it as a JSON file.
 - **Short links** — store a destination and encode a code that redirects to it, with an optional

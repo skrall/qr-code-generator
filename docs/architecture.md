@@ -65,6 +65,25 @@ unpainted too. `background` still names the surface the code is meant for, so th
 the artwork adjustment and the scan check, which flattens the image over that colour before reading
 it, all work as before.
 
+## Payload types
+
+The server encodes whatever string it is sent; each content type is a builder in
+`ui/src/qr/types.ts` that composes that string, with an optional `validate` that reports values
+which were entered but cannot be encoded. While a type reports a problem its builder returns
+nothing, so no code is rendered, and the form shows the message under the field.
+
+| Type | Payload |
+| --- | --- |
+| WiFi | `WIFI:T:WPA;S:<ssid>;P:<password>;H:true;;` (ZXing grammar). "WPA3 only" is `T:WPA;R:1`: the WPA3 specification's transition-disable bit, not Android's `T:SAE` |
+| vCard | vCard 3.0, CRLF line endings |
+| MeCard | `MECARD:N:Last,First;TEL:…;EMAIL:…;URL:…;ADR:…;NOTE:…;;`, with `\ ; , :` backslash-escaped |
+| App store | `https://apps.apple.com/app/id<digits>` or `https://play.google.com/store/apps/details?id=<package>` |
+| SEPA payment | EPC069-12 "GiroCode": `BCD`, `002`, `1` (UTF-8), `SCT`, BIC, name, IBAN, `EUR<amount>`, purpose, reference or text, note, one per line (LF), at most 331 bytes |
+
+The SEPA type checks the IBAN's and an RF reference's mod-97 check digits and every field length
+in the EPC guidelines, since a banking app rejects a code that is off by one line. The guidelines
+also recommend error correction level M for these codes.
+
 
 ## Notes
 
