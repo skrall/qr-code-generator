@@ -27,6 +27,8 @@ by the same process.
   (EPC QR code, with IBAN checking).
 - **Saved designs** — name a style and reuse it, logo and all. Keep it private or share it with
   everyone who signs in, and export or import it as a JSON file.
+- **Batch generation** — upload a CSV of payloads, render every row with the current style or a
+  saved design, and download the PNGs or SVGs as a ZIP, with a report of any rows skipped.
 - **Undo, redo and share links** — undo any edit to the style or content (Ctrl/Cmd+Z), and copy
   a link that reopens the design, optionally with its content. The design travels in the link's
   `#` fragment, never sent to the server; secrets such as a WiFi password are always left out, and

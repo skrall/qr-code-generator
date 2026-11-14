@@ -8,6 +8,7 @@ src/main/java/org/skrall/qrcode/
 ├── render/         matrix → PNG (Java2D) or SVG
 ├── link/           short link entity, repository and redirect resolution
 ├── design/         saved designs and who may see and change them
+├── batch/          CSV reading, ZIP entry names and the streamed batch render
 ├── security/       the four sign-in modes, role mapping and the proxy allowlist
 ├── nativeimage/    runtime hints a GraalVM native image needs (see AGENTS.md)
 └── web/            the controllers, the error advice and the format converter

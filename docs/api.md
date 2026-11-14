@@ -429,6 +429,99 @@ fragment (`#share=v1.…`), which is never sent to the server. A style with imag
 rules above apply: a private design opens only for its owner. See
 [the architecture notes](architecture.md#undo-and-share-links) for the format.
 
+## Batch generation
+
+`POST /api/qr-codes/batch` renders every row of a CSV with one style and answers a ZIP. It is
+multipart, because the options carry a style that can run to megabytes of images, and a browser
+can send the chosen file as it is:
+
+| Part | Content type | Holds |
+| --- | --- | --- |
+| `csv` | any (`text/csv`) | The CSV, UTF-8, at most 1 MB |
+| `options` | `application/json` | Optional: `{"format", "style"}` or `{"format", "designId"}` |
+
+```bash
+curl -X POST http://localhost:8080/api/qr-codes/batch \
+  --user operator:change-me-on-deploy \
+  -F 'csv=@codes.csv;type=text/csv' \
+  -F 'options={"format":"both","style":{"size":640,"moduleShape":"ROUNDED"}};type=application/json' \
+  --output qr-codes.zip
+```
+
+- **`format`** is `png` (the default), `svg` or `both`, in any case. `both` writes a PNG and an
+  SVG per row.
+- **`style`** is the same document the render API takes; absent, the code is plain
+  black-on-white. **`designId`** takes the style from a saved design instead. A design you
+  cannot see answers 404, just as `GET /api/designs/{id}` does; sending both is a 400.
+- The `options` part must be sent as `application/json` (curl's `;type=application/json`);
+  without it the server answers 415.
+
+### The CSV
+
+```csv
+data,filename
+https://example.com,example
+"WIFI:T:WPA;S:Cafe;P:espresso;;",wifi
+"BEGIN:VCARD
+VERSION:3.0
+FN:Ann Example
+END:VCARD",ann
+```
+
+- The first row is the header and must name a `data` column: the payload, encoded exactly as
+  written, as `data` is in the render API. A `filename` column is optional. Names are matched
+  without regard to case or surrounding spaces; other columns are ignored.
+- RFC 4180: comma-separated, records ending in CRLF or LF. A field in double quotes may hold
+  commas, line breaks and quotes written twice (`""`). Text after a closing quote, or a quote
+  never closed, is a 400 naming the line. A stray quote inside an unquoted field is kept as text.
+- UTF-8, with or without a byte order mark; bytes that are not valid UTF-8 are a 400. Excel's
+  "CSV UTF-8" works.
+- Empty lines are skipped. Rows are numbered from 1, the first after the header, not counting
+  them.
+
+### Limits
+
+At most 500 rows and 1 MB of CSV; more is a 400 that says which. The style is checked once, before
+anything is rendered, so an invalid one is a 400 like a single render's. The multipart request as
+a whole is capped at 12 MB (10 MB per part) to leave room for a style's images; past that the
+server answers 413.
+
+### File names
+
+Each row's entry is its `filename`, made safe, plus `.png` or `.svg`:
+
+- Letters, digits, `.`, `-` and `_` are kept; anything else, `/` and `\` included, becomes `_`.
+  Runs of dots become one, so `..` never survives, and leading or trailing dots, dashes and
+  underscores are dropped. A trailing `.png` or `.svg` is dropped, as the extension is added
+  per format. Names are cut to 80 characters, and Windows device names (`CON`, `NUL`, `COM1`…)
+  get a `_` appended.
+- A missing or unusable name becomes `row-<n>`.
+- Names are unique without regard to case: a repeat becomes `name-2`, `name-3` and so on. A
+  skipped row keeps its name, so the names do not depend on which rows rendered.
+
+### The archive and `report.csv`
+
+The response is `application/zip` with `Content-Disposition: attachment; filename="qr-codes.zip"`.
+It is written while the codes render rather than built first, so the first bytes arrive early and
+only one row's images are held in memory at a time. PNG entries are stored (they are compressed
+already) and SVG entries deflated.
+
+A row that cannot be rendered — empty `data`, more than 8000 characters, too long for the
+error-correction level, too long for a frame's quiet zone — is skipped rather than failing the
+batch. The archive's last entry, `report.csv`, lists every row:
+
+```csv
+row,filename,status,message
+1,example,ok,
+2,row-2,skipped,data must not be blank
+```
+
+`filename` is the entry name without its extension; `status` is `ok` or `skipped`, and a
+skipped row's `message` is the text a single render of it would answer with.
+
+Any signed-in user may run a batch, viewers included, as with a single render. Under OIDC the POST
+needs the CSRF token like any other.
+
 ## Other endpoints
 
 | Path                | Purpose                        |

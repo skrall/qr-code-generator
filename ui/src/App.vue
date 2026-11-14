@@ -10,6 +10,7 @@ import {
   type ScanCheck,
   type ShortLink,
 } from './api/client'
+import BatchPanel from './components/BatchPanel.vue'
 import ContentForm from './components/ContentForm.vue'
 import LinksView from './components/LinksView.vue'
 import DesignsPanel from './components/DesignsPanel.vue'
@@ -342,6 +343,11 @@ onUnmounted(() => {
 
           <h2>Frame</h2>
           <FramePanel v-model="style.frame" />
+        </div>
+
+        <div class="card">
+          <h2>Batch</h2>
+          <BatchPanel :qr-style="style" />
         </div>
       </section>
 
