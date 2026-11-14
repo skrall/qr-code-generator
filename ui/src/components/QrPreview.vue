@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { QrFormat } from '../api/client'
+import type { EmbedSource } from '../embed'
+import EmbedMenu from './EmbedMenu.vue'
 import type { PreviewState } from '../preview'
 
 withDefaults(
@@ -14,11 +16,14 @@ withDefaults(
     draft?: boolean
     /** False while the payload is a draft, so a destination code cannot be downloaded. */
     downloadable?: boolean
+    /** Enables "Copy as…" snippets; omitted, the menu is not shown. */
+    embed?: EmbedSource | null
   }>(),
   {
     placeholder: 'Fill in the required fields and the code appears here.',
     draft: false,
     downloadable: true,
+    embed: null,
   },
 )
 
@@ -58,6 +63,12 @@ defineEmits<{
         Download SVG
       </button>
     </div>
+
+    <EmbedMenu
+      v-if="embed"
+      :source="embed"
+      :disabled="!url || !downloadable || state !== 'ready'"
+    />
 
     <details v-if="payload" class="payload">
       <summary>Encoded content</summary>
