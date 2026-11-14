@@ -21,6 +21,7 @@ import ShareLink from './components/ShareLink.vue'
 import ShortLinkForm from './components/ShortLinkForm.vue'
 import StylePanel from './components/StylePanel.vue'
 import type { PreviewState } from './preview'
+import { altText, type EmbedSource, linkTarget } from './embed'
 import { findQrType, initialValues, QR_TYPES, type QrTypeId } from './qr/types'
 import { defaultStyle } from './qr/style'
 import { useEditorHistory } from './editorHistory'
@@ -224,6 +225,16 @@ async function download(format: QrFormat): Promise<void> {
   }
 }
 
+/** The "Copy as…" snippets fetch with the same call as a download, so they match the file. */
+const embed = computed<EmbedSource>(() => {
+  const request = { data: payload.value, style }
+  return {
+    render: (format) => renderQrCode(request, format),
+    alt: altText(typeId.value, model.value, payload.value),
+    href: linkTarget(payload.value),
+  }
+})
+
 const logoNeedsHigh = computed(() => style.logo !== null && style.errorCorrection !== 'HIGH')
 
 function useHighErrorCorrection(): void {
@@ -344,6 +355,7 @@ onUnmounted(() => {
             :payload="payload"
             :draft="isDraft"
             :downloadable="!isDraft"
+            :embed="embed"
             :placeholder="
               typeId === 'shortlink'
                 ? 'Enter a destination to see a draft, then Create link to encode the short URL.'

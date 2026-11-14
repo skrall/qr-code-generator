@@ -125,6 +125,8 @@ describe('App with a short link', () => {
     expect(host.querySelector('.scan-hints')?.textContent).toContain('Widen the margin.')
     expect(button(host, 'Download PNG').disabled).toBe(true)
     expect(button(host, 'Download SVG').disabled).toBe(true)
+    // Copy as… follows the downloads: a draft cannot be embedded either.
+    expect(button(host, 'Copy').disabled).toBe(true)
 
     button(host, 'Create link').click()
     // Creation, then the 220 ms preview debounce.
@@ -135,6 +137,10 @@ describe('App with a short link', () => {
     expect(host.querySelector('.notice')).toBeNull()
     expect(button(host, 'Download PNG').disabled).toBe(false)
     expect(button(host, 'Download SVG').disabled).toBe(false)
+    expect(button(host, 'Copy').disabled).toBe(false)
+    // The short URL can be wrapped in a link.
+    const formats = [...host.querySelectorAll('#embed-format option')].map((o) => o.getAttribute('value'))
+    expect(formats).toContain('link')
   })
 })
 

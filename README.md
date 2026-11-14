@@ -37,6 +37,9 @@ by the same process.
   reverse proxy, with an operator role for changing short links. The redirects stay public.
 - **PNG and SVG** — PNG for anything that needs a bitmap, SVG for print and for embedding the
   original logo without resampling.
+- **Copy as embed snippet** — copy the code as an HTML `<img>` with a PNG data URL, inline SVG
+  (ids prefixed so several codes can share a page), a bare data URL, or, for a web address, an
+  `<img>` wrapped in a link. Alt text describes the payload without secrets such as a WiFi password.
 - **Scan check** — the preview renders the code again and reads it back, as drawn, shrunk and
   blurred, and says whether phones should read it, with hints when they might not.
 - **Scannable** — the tests decode the rendered output with ZXing, including a rounded code with
