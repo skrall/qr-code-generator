@@ -50,6 +50,11 @@ public class ShortLinkService {
         this.goneProperties = goneProperties;
         this.scans = scans;
         this.transactions = new TransactionTemplate(transactionManager);
+        if (goneProperties.goneUrl() != null && properties.isShortLink(goneProperties.goneUrl())) {
+            throw new IllegalStateException("app.links.gone-url must not be one of this service's"
+                    + " short links (" + goneProperties.goneUrl() + "): once that link expires, scans"
+                    + " would redirect in a loop.");
+        }
     }
 
     @Transactional
@@ -66,7 +71,7 @@ public class ShortLinkService {
     @Transactional
     public ShortLink create(String url, Instant expiresAt, String goneUrl, String goneMessage) {
         String target = targetUrl(url);
-        String fallback = goneUrl(goneUrl);
+        String fallback = fallbackUrl(goneUrl);
         String message = goneMessage(goneMessage);
         Instant now = Instant.now();
         if (expiresAt != null && !expiresAt.isAfter(now)) {
@@ -112,7 +117,7 @@ public class ShortLinkService {
         }
 
         String target = targetUrl(url);
-        String fallback = goneUrl(goneUrl);
+        String fallback = fallbackUrl(goneUrl);
         String message = goneMessage(goneMessage);
         Instant now = Instant.now();
         if (expiresAt != null && !expiresAt.isAfter(now)) {
@@ -187,7 +192,9 @@ public class ShortLinkService {
      * for a link that says nothing of its own, so a message someone wrote is never skipped.
      */
     private Resolution gone(ShortLink link) {
-        if (link.getGoneUrl() != null) {
+        // A fallback saved before short links were refused as fallbacks could still loop; such a
+        // link answers as if it had none rather than redirecting.
+        if (link.getGoneUrl() != null && !properties.isShortLink(link.getGoneUrl())) {
             return new Resolution(Status.GONE, link.getGoneUrl(), null);
         }
         if (link.getGoneMessage() != null) {
@@ -240,6 +247,21 @@ public class ShortLinkService {
     /** The fallback for a gone link: blank means none, anything else is checked like a destination. */
     static String goneUrl(String raw) {
         return raw == null || raw.isBlank() ? null : validUrl("goneUrl", raw);
+    }
+
+    /**
+     * {@link #goneUrl(String)}, and not one of this service's own short links: a fallback must be
+     * a final destination. Pointing at the link itself, or at another link that later expires
+     * with a fallback back to this one, would make scans redirect in a loop.
+     */
+    private String fallbackUrl(String raw) {
+        String fallback = goneUrl(raw);
+        if (fallback != null && properties.isShortLink(fallback)) {
+            throw new InvalidLinkException("goneUrl must not be one of this service's short links:"
+                    + " a fallback must be a final destination, or expired links could redirect to"
+                    + " each other in a loop");
+        }
+        return fallback;
     }
 
     /**

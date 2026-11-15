@@ -182,6 +182,9 @@ Keep them terse. One-line subject, and a body only when it earns its place.
   writes, and the page's CSP allows only its own stylesheet by hash. Changing `STYLE` changes the
   hash, which is computed, so no manual update is needed; adding a script or image means
   widening the CSP on purpose. `goneUrl` goes through the same `validUrl` as the destination.
+- A fallback (`goneUrl`, `app.links.gone-url`) must never be one of this service's own short links
+  (`LinkProperties.isShortLink`): expired links pointing at themselves or each other loop. It is
+  refused on create, edit and startup, and ignored at resolve time for rows saved before.
 
 ## Scan analytics
 

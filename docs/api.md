@@ -429,7 +429,12 @@ one, after which its code answers `410 Gone` rather than `404`.
 has expired or been deleted:
 
 - `goneUrl` — redirect there instead of showing a page. Checked exactly like `url`: absolute
-  `http`/`https` only, at most 2048 characters, no credentials, non-ASCII percent-encoded.
+  `http`/`https` only, at most 2048 characters, no credentials, non-ASCII percent-encoded. It must
+  also be a final destination, not one of this service's short links (`{public-base-url}/r/…`):
+  a link falling back to itself, or two links falling back to each other once both expire, would
+  redirect forever. Such a `goneUrl` is a `400`. Only the configured public base URL is
+  recognised (same host, same port; `http` and `https` on their default ports count as one); a
+  different name for the same machine is not.
 - `goneMessage` — plain text, at most 280 characters, shown on the page instead of the default
   wording. Line breaks are kept; other control characters are rejected. Markup is not
   interpreted: the text is HTML-escaped when shown.
@@ -450,7 +455,9 @@ every scan reaches the server and the hit count stays honest. Otherwise:
 | Unknown | `404` page |
 
 `app.links.gone-url` (`APP_LINKS_GONE_URL`) is an optional site-wide fallback, validated like a
-destination at startup. It never applies to an unknown code. The `404` and `410` pages are small
+destination at startup; pointing it at one of this service's short links fails startup for the
+same reason. A link whose stored `goneUrl` is a short link (saved before this check existed)
+answers as if it had none, rather than redirecting. It never applies to an unknown code. The `404` and `410` pages are small
 self-contained HTML (inline CSS, light and dark, sized for a phone) that never show the old
 destination. Both carry `Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
 `X-Robots-Tag: noindex`, `X-Content-Type-Options: nosniff` and a
