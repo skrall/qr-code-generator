@@ -22,5 +22,12 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],
+    // Vitest's default, stated on purpose. Without an explicit pool, Vitest prints a hint after
+    // every run suggesting `pool: 'vmThreads'` or `isolate: false` to build jsdom once per worker.
+    // Measured on this suite, neither is faster (about 4.6 s either way, as the environments are
+    // built in parallel), vmThreads fails six tests, and isolate: false would let one spec's
+    // stubbed globals (fetch, URL.createObjectURL, cookies) leak into the next. Revisit if the
+    // suite grows enough for environment setup to dominate.
+    pool: 'forks',
   },
 })
