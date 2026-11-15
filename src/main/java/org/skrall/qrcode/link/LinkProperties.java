@@ -45,4 +45,44 @@ public record LinkProperties(String publicBaseUrl) {
     public String shortUrl(String code) {
         return publicBaseUrl + "/r/" + code;
     }
+
+    /**
+     * Whether a URL addresses one of this service's short links, i.e. its redirect path under the
+     * public base URL.
+     *
+     * <p>Used to keep a gone link's fallback from pointing at a short link: once that link expires
+     * too, the two redirect to each other, or a link to itself, forever. The host is compared
+     * without regard to case, and the scheme is ignored when both URLs use their scheme's
+     * default port, because a proxy commonly answers the same name on http and https. Other
+     * names for the same machine (a LAN address and {@code localhost}, say) cannot be recognised.
+     */
+    public boolean isShortLink(String url) {
+        URI candidate;
+        try {
+            candidate = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        URI base = URI.create(publicBaseUrl);
+        if (candidate.getHost() == null || !candidate.getHost().equalsIgnoreCase(base.getHost())) {
+            return false;
+        }
+        int candidatePort = effectivePort(candidate);
+        int basePort = effectivePort(base);
+        boolean bothDefault = candidatePort == defaultPort(candidate) && basePort == defaultPort(base);
+        if (candidatePort != basePort && !bothDefault) {
+            return false;
+        }
+        String basePath = base.getRawPath() == null ? "" : base.getRawPath();
+        String path = candidate.getRawPath() == null ? "" : candidate.getRawPath();
+        return path.startsWith(basePath + "/r/");
+    }
+
+    private static int effectivePort(URI uri) {
+        return uri.getPort() == -1 ? defaultPort(uri) : uri.getPort();
+    }
+
+    private static int defaultPort(URI uri) {
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+    }
 }
